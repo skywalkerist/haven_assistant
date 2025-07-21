@@ -1,0 +1,7 @@
+{
+	"name": "uploadAudio",
+	"dependencies": {},
+	"extensions": {
+		"uni-cloud-jql": {}
+	}
+}

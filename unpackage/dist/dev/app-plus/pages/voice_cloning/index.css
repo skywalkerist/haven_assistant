@@ -1,0 +1,62 @@
+
+.page-container {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		background-color: #FFFFFF;
+}
+.content-wrapper {
+		flex: 1;
+		padding: 1.875rem 1.25rem;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+}
+.title {
+		font-size: 1.25rem;
+		font-weight: bold;
+		margin-bottom: 1.25rem;
+}
+.text-box {
+		width: 100%;
+		background-color: #f8f8f8;
+		border-radius: 0.625rem;
+		padding: 1.25rem;
+}
+.paragraph {
+		font-size: 1rem;
+		line-height: 1.6;
+		color: #333;
+}
+.status-bar {
+		margin-top: 1.25rem;
+		padding: 0.625rem;
+		background-color: #eef6ff;
+		border-radius: 0.3125rem;
+}
+.status-text {
+		color: #007aff;
+		font-size: 0.875rem;
+}
+.button-bar {
+		display: flex;
+		justify-content: space-around;
+		align-items: center;
+		height: 4.375rem;
+		border-top: 0.03125rem solid #e7e7e7;
+		background-color: #f8f8f8;
+}
+.bar-button {
+		font-size: 0.9375rem;
+		background-color: #FFFFFF;
+		border-radius: 1.25rem;
+		box-shadow: 0 0.0625rem 0.1875rem rgba(0,0,0,0.05);
+}
+.record-button {
+		color: #FFFFFF;
+		background-color: #007aff; /* A primary color for the main action */
+}
+.bar-button[disabled] {
+		background-color: #f0f0f0;
+		color: #b0b0b0;
+}

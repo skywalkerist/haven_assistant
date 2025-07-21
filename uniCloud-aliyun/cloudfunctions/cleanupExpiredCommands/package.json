@@ -1,0 +1,12 @@
+{
+	"name": "cleanupExpiredCommands",
+	"dependencies": {},
+	"extensions": {
+		"uni-cloud-jql": {}
+	},
+	"triggers": [{
+		"name": "cleanupTimer",
+		"type": "timer",
+		"config": "0 */5 * * * *"
+	}]
+}

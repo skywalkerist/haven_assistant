@@ -1,0 +1,7 @@
+{
+	"name": "getCommandResult",
+	"dependencies": {},
+	"extensions": {
+		"uni-cloud-jql": {}
+	}
+}

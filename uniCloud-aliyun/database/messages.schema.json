@@ -1,0 +1,36 @@
+{
+  "bsonType": "object",
+  "required": ["content", "status", "create_time"],
+  "permission": {
+    "read": true,
+    "create": true,
+    "update": true,
+    "delete": true
+  },
+  "properties": {
+    "_id": {
+      "description": "ID，系统自动生成"
+    },
+    "content": {
+      "bsonType": "string",
+      "description": "消息内容"
+    },
+    "status": {
+      "bsonType": "string",
+      "description": "消息状态：pending (待处理), processing (处理中), completed (已完成)",
+      "enum": ["pending", "processing", "completed"]
+    },
+    "create_time": {
+      "bsonType": "timestamp",
+      "description": "创建时间"
+    },
+    "reply": {
+      "bsonType": "string",
+      "description": "树莓派的回复内容"
+    },
+    "update_time": {
+      "bsonType": "timestamp",
+      "description": "状态更新时间"
+    }
+  }
+}

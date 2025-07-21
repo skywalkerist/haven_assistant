@@ -1,0 +1,10 @@
+{
+  "name": "file-utils",
+  "version": "1.0.0",
+  "description": "一个用于通过轮询机制与客户端安全交换文件的公共模块",
+  "main": "index.js",
+  "dependencies": {
+    "uni-id-common": "file:../../../../uni_modules/uni-id-common/uniCloud/cloudfunctions/common/uni-id-common",
+    "uni-config-center": "file:../../../../uni_modules/uni-config-center/uniCloud/cloudfunctions/common/uni-config-center"
+  }
+}

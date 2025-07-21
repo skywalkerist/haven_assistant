@@ -1,0 +1,60 @@
+{
+  "bsonType": "object",
+  "required": [],
+  "permission": {
+    "read": "auth.uid != null",
+    "create": "auth.uid != null",
+    "update": "auth.uid != null",
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "ID，系统自动生成，这里我们可以固定为 'robot_main_status'，确保全局只有一条记录"
+    },
+    "current_pose": {
+      "bsonType": "object",
+      "description": "机器人当前姿态",
+      "properties": {
+        "x": {
+          "bsonType": "double",
+          "description": "x坐标"
+        },
+        "y": {
+          "bsonType": "double",
+          "description": "y坐标"
+        },
+        "theta": {
+          "bsonType": "double",
+          "description": "角度"
+        }
+      }
+    },
+    "move_status": {
+      "bsonType": "string",
+      "description": "移动指令的执行状态 (idle, running, succeeded, failed, canceled)"
+    },
+    "running_status": {
+      "bsonType": "string",
+      "description": "移动任务的具体状态 (leave_charging_pile, goto_lift, etc.)"
+    },
+    "power_percent": {
+      "bsonType": "int",
+      "description": "电量百分比"
+    },
+    "charge_state": {
+      "bsonType": "bool",
+      "description": "充电状态"
+    },
+    "estop_state": {
+      "bsonType": "bool",
+      "description": "急停状态"
+    },
+    "last_update_time": {
+      "bsonType": "timestamp",
+      "description": "状态更新时间",
+      "forceDefaultValue": {
+        "$env": "now"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+	"passwordSecret": [
+		{
+			"type": "scrypt",
+			"version": 1
+		}
+	],
+	"token": {
+		"tokenSecret": "d9f8e7c6b5a4d3c2b1a0f9e8d7c6b5a4",
+		"tokenExpiresIn": 7200,
+		"tokenExpiresThreshold": 3600
+	},
+	"app": {
+		"tokenExpiresIn": 2592000,
+		"tokenExpiresThreshold": 864000,
+		"oauth": {}
+	}
+}

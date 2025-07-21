@@ -1,0 +1,7 @@
+{
+	"name": "pollCommand",
+	"dependencies": {},
+	"extensions": {
+		"uni-cloud-jql": {}
+	}
+}

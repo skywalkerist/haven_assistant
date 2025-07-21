@@ -1,0 +1,58 @@
+{
+  "bsonType": "object",
+  "required": ["task", "status", "created_at"],
+  "permission": {
+    "read": true,
+    "create": true,
+    "update": true,
+    "delete": true
+  },
+  "properties": {
+    "_id": {
+      "description": "ID，系统自动生成"
+    },
+    "task": {
+      "bsonType": "string",
+      "description": "任务名称，例如 'get_marker_list', 'add_marker'",
+      "trim": true
+    },
+    "params": {
+      "bsonType": "object",
+      "description": "任务所需的参数",
+      "defaultValue": {}
+    },
+    "status": {
+      "bsonType": "string",
+      "description": "任务状态: pending (待处理), processing (处理中), completed (已完成), failed (失败)",
+      "defaultValue": "pending",
+      "enum": ["pending", "processing", "completed", "failed"]
+    },
+    "result": {
+      "bsonType": "object",
+      "description": "任务执行成功后的返回结果",
+      "defaultValue": {}
+    },
+    "error_message": {
+        "bsonType": "string",
+        "description": "任务执行失败后的错误信息",
+        "defaultValue": ""
+    },
+    "created_at": {
+      "bsonType": "timestamp",
+      "description": "创建时间",
+      "forceDefaultValue": {
+        "$serverDate": true
+      }
+    },
+    "updated_at": {
+      "bsonType": "timestamp",
+      "description": "最后更新时间",
+      "forceDefaultValue": {
+        "$serverDate": true
+      },
+      "onUpdate": {
+        "$serverDate": true
+      }
+    }
+  }
+}

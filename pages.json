@@ -1,0 +1,62 @@
+{
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "Haven App"
+			}
+		},
+		{
+			"path": "pages/chat/chat",
+			"style": {
+				"navigationBarTitleText": "聊天"
+			}
+		},
+		{
+			"path": "pages/calculator/calculator",
+			"style": {
+				"navigationBarTitleText": "云端计算器"
+			}
+		},
+		{
+			"path": "pages/marker/index",
+			"style": {
+				"navigationBarTitleText": "点位设置"
+			}
+		},
+		{
+			"path": "pages/personalization/index",
+			"style": {
+				"navigationBarTitleText": "个性设置"
+			}
+		},
+		{
+			"path": "pages/voice_cloning/index",
+			"style": {
+				"navigationBarTitleText": "语音个性化模仿"
+			}
+		},
+		{
+			"path": "pages/voice_management/index",
+			"style": {
+				"navigationBarTitleText": "声音音色管理"
+			}
+		},
+		{
+			"path": "pages/face_entry/index",
+			"style": {
+				"navigationBarTitleText": "人脸录入"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "uni-app",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8",
+		"usingComponents": {
+			"uni-load-more": "/uni_modules/uni-load-more/components/uni-load-more/uni-load-more"
+		}
+	},
+	"uniIdRouter": {}
+}

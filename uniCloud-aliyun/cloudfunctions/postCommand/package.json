@@ -1,0 +1,7 @@
+{
+	"name": "postCommand",
+	"dependencies": {},
+	"extensions": {
+		"uni-cloud-jql": {}
+	}
+}
