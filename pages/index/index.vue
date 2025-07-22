@@ -90,6 +90,10 @@
 					uni.navigateTo({
 						url: '/pages/marker/index'
 					});
+				} else if (title === '语音模式') {
+					uni.navigateTo({
+						url: '/pages/chat/chat'
+					});
 				} else {
 					uni.showToast({
 						title: '功能待开发',

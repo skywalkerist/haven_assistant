@@ -82,6 +82,10 @@ if (uni.restoreGlobal) {
           uni.navigateTo({
             url: "/pages/marker/index"
           });
+        } else if (title === "语音模式") {
+          uni.navigateTo({
+            url: "/pages/chat/chat"
+          });
         } else {
           uni.showToast({
             title: "功能待开发",
@@ -584,7 +588,7 @@ if (uni.restoreGlobal) {
   function T(e2) {
     return e2 && "string" == typeof e2 ? JSON.parse(e2) : e2;
   }
-  const b = true, E = "app", A = T(define_process_env_UNI_SECURE_NETWORK_CONFIG_default), P = E, C = T('{"address":["127.0.0.1","172.18.10.206","100.90.189.29"],"servePort":7002,"debugPort":9001,"initialLaunchType":"remote","skipFiles":["<node_internals>/**","/Applications/HBuilderX.app/Contents/HBuilderX/plugins/unicloud/**/*.js"]}'), O = T('[{"provider":"aliyun","spaceName":"havenyun","spaceId":"mp-503540be-00e4-400c-86f1-957c9c805a91","clientSecret":"n8MfgAcFEz8wTmaBGpf2sQ==","endpoint":"https://api.next.bspapp.com"}]') || [];
+  const b = true, E = "app", A = T(define_process_env_UNI_SECURE_NETWORK_CONFIG_default), P = E, C = T('{"address":["127.0.0.1","172.18.4.228","100.90.189.29"],"servePort":7002,"debugPort":9001,"initialLaunchType":"local","skipFiles":["<node_internals>/**","/Applications/HBuilderX.app/Contents/HBuilderX/plugins/unicloud/**/*.js"]}'), O = T('[{"provider":"aliyun","spaceName":"havenyun","spaceId":"mp-503540be-00e4-400c-86f1-957c9c805a91","clientSecret":"n8MfgAcFEz8wTmaBGpf2sQ==","endpoint":"https://api.next.bspapp.com"}]') || [];
   let N = "";
   try {
     N = "__UNI__73C8DF0";
@@ -3117,198 +3121,217 @@ ${o3}
     }
   })();
   var tr = er;
+  const recorderManager = uni.getRecorderManager();
   const _sfc_main$7 = {
-    computed: {
-      isCommandRunning() {
-        if (!this.lastCommand)
-          return false;
-        const runningStatus = ["pending", "sent"];
-        return runningStatus.includes(this.lastCommand.status);
-      },
-      formattedCommandStatus() {
-        if (!this.lastCommand)
-          return "无";
-        switch (this.lastCommand.status) {
-          case "pending":
-          case "sent":
-            return "机器人处理中...";
-          case "completed":
-            return "执行完成";
-          case "failed":
-            return "执行失败";
-          default:
-            return "未知";
-        }
-      }
-    },
     data() {
       return {
-        robotStatus: null,
-        lastCommand: null
+        inputValue: "",
+        scrollTop: 0,
+        messages: [{
+          sender: "robot",
+          avatar: "/static/robot.png",
+          text: "你好！有什么可以帮你的吗？"
+        }],
+        isVoiceMode: false,
+        isRecording: false
       };
     },
     onLoad() {
-      this.initialize();
-      this.listenToPush();
+      this.initRecorder();
+      uni.onPushMessage((res) => {
+        formatAppLog("log", "at pages/chat/chat.vue:48", "收到推送消息:", res);
+        if (res.type === "receive") {
+          this.handlePushPayload(res.data);
+        }
+      });
     },
     methods: {
-      // 1. 初始化
-      async initialize() {
-        formatAppLog("log", "at pages/chat/chat.vue:62", "Initializing page...");
-        this.fetchStatus();
-        this.registerClientId();
+      initRecorder() {
+        recorderManager.onStop((res) => {
+          this.isRecording = false;
+          uni.hideLoading();
+          formatAppLog("log", "at pages/chat/chat.vue:59", "录音停止", res);
+          this.uploadAudio(res.tempFilePath);
+        });
+        recorderManager.onError((err) => {
+          this.isRecording = false;
+          uni.hideLoading();
+          uni.showToast({ title: "录音失败", icon: "none" });
+          formatAppLog("error", "at pages/chat/chat.vue:66", "录音失败", err);
+        });
       },
-      // 2. 注册推送
-      registerClientId() {
-        uni.getPushClientId({
+      toggleInputMode() {
+        this.isVoiceMode = !this.isVoiceMode;
+      },
+      sendTextMessage() {
+        if (!this.inputValue.trim()) {
+          uni.showToast({ title: "消息不能为空", icon: "none" });
+          return;
+        }
+        const text = this.inputValue;
+        this.addMessage("user", text);
+        this.inputValue = "";
+        this.postDialogueCommand(text);
+      },
+      startRecording() {
+        this.isRecording = true;
+        uni.showLoading({ title: "正在录音..." });
+        recorderManager.start({
+          sampleRate: 16e3,
+          numberOfChannels: 1,
+          format: "pcm"
+        });
+      },
+      stopRecording() {
+        if (this.isRecording) {
+          recorderManager.stop();
+        }
+      },
+      uploadAudio(filePath) {
+        uni.getFileSystemManager().readFile({
+          filePath,
+          encoding: "base64",
           success: (res) => {
-            formatAppLog("log", "at pages/chat/chat.vue:73", "Successfully get client id:", res.cid);
+            uni.showLoading({ title: "识别中..." });
             tr.callFunction({
-              name: "updateClientInfo",
-              data: { cid: res.cid }
+              name: "uploadAudioForASR",
+              data: {
+                audioBase64: res.data
+              }
             }).then(() => {
-              formatAppLog("log", "at pages/chat/chat.vue:78", "Client ID registered to cloud.");
+              uni.hideLoading();
+              uni.showToast({ title: "语音已发送", icon: "success" });
             }).catch((err) => {
-              formatAppLog("error", "at pages/chat/chat.vue:80", "Failed to register Client ID:", err);
+              uni.hideLoading();
+              uni.showToast({ title: "语音发送失败", icon: "none" });
             });
           },
-          fail(err) {
-            formatAppLog("error", "at pages/chat/chat.vue:84", "Failed to get client id:", err);
+          fail: (err) => {
+            uni.showToast({ title: "读取文件失败", icon: "none" });
           }
         });
       },
-      // 3. 监听推送消息
-      listenToPush() {
-        uni.onPushMessage((res) => {
-          formatAppLog("log", "at pages/chat/chat.vue:92", "Received push message:", res);
-          if (res.type === "click") {
-            const payload = res.data.payload;
-            this.handlePushPayload(payload);
-          } else if (res.type === "receive") {
-            this.handlePushPayload(res.data);
+      postDialogueCommand(text) {
+        tr.callFunction({
+          name: "postCommand",
+          data: {
+            task: "dialogue",
+            params: { text }
           }
+        }).catch((err) => {
+          uni.showToast({ title: "指令发送失败", icon: "none" });
         });
       },
-      // 4. 处理推送内容
+      addMessage(sender, text) {
+        const avatar = sender === "user" ? "/static/icon_user.png" : "/static/robot.png";
+        this.messages.push({ sender, text, avatar });
+        this.scrollToBottom();
+      },
       handlePushPayload(payload) {
         if (typeof payload === "string") {
           try {
             payload = JSON.parse(payload);
           } catch (e2) {
-            formatAppLog("error", "at pages/chat/chat.vue:110", "Failed to parse push payload:", e2);
+            formatAppLog("error", "at pages/chat/chat.vue:143", "解析推送payload失败:", e2);
             return;
           }
         }
-        formatAppLog("log", "at pages/chat/chat.vue:115", "Handling push payload:", payload);
-        if (payload.type === "status_updated") {
-          formatAppLog("log", "at pages/chat/chat.vue:117", "Handling status_updated push.");
-          this.robotStatus = payload.status;
-        } else if (payload.type === "command_updated") {
-          formatAppLog("log", "at pages/chat/chat.vue:120", "Handling command_updated push.");
-          this.lastCommand = payload.command;
+        if (payload.type === "dialogue_response" && payload.text) {
+          this.addMessage("robot", payload.text);
         }
       },
-      // 5. 主动获取状态（仅初始化时调用）
-      fetchStatus() {
-        tr.callFunction({
-          name: "getRobotStatus"
-        }).then((res) => {
-          if (res.result && res.result.success) {
-            this.robotStatus = res.result.status;
-          }
-        }).catch((err) => {
-          formatAppLog("error", "at pages/chat/chat.vue:134", "Failed to fetch robot status:", err);
-        });
-      },
-      // 6. 发送指令
-      sendMoveCommand() {
-        const command = "/api/move?marker=test_point";
-        const params = {
-          type: "move",
-          name: "test_point",
-          x: 1,
-          y: 2,
-          theta: 90
-        };
-        uni.showLoading({ title: "发送指令中..." });
-        tr.callFunction({
-          name: "sendRobotCommand",
-          data: { command, params }
-        }).then((res) => {
-          uni.hideLoading();
-          if (res.result && res.result.success && res.result.command) {
-            this.lastCommand = res.result.command;
-            uni.showToast({ title: "指令已发送", icon: "success" });
-          } else {
-            throw new Error(res.result.message || "发送失败");
-          }
-        }).catch((err) => {
-          uni.hideLoading();
-          uni.showToast({ title: err.message || "发送失败", icon: "none" });
+      scrollToBottom() {
+        this.$nextTick(() => {
+          this.scrollTop = this.messages.length * 1e3;
         });
       }
     }
   };
   function _sfc_render$6(_ctx, _cache, $props, $setup, $data, $options) {
-    return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createElementVNode("view", { class: "status-card" }, [
-        vue.createElementVNode("text", { class: "title" }, "机器人状态"),
-        $data.robotStatus && $data.robotStatus.current_pose ? (vue.openBlock(), vue.createElementBlock("view", { key: 0 }, [
-          vue.createElementVNode(
-            "text",
-            null,
-            "坐标: (" + vue.toDisplayString($data.robotStatus.current_pose.x.toFixed(2)) + ", " + vue.toDisplayString($data.robotStatus.current_pose.y.toFixed(2)) + ")",
-            1
-            /* TEXT */
-          ),
-          vue.createElementVNode(
-            "text",
-            null,
-            "角度: " + vue.toDisplayString($data.robotStatus.current_pose.theta.toFixed(2)),
-            1
-            /* TEXT */
-          ),
-          vue.createElementVNode(
-            "text",
-            null,
-            "电量: " + vue.toDisplayString($data.robotStatus.power_percent) + "%",
-            1
-            /* TEXT */
-          ),
-          vue.createElementVNode(
-            "text",
-            null,
-            "移动状态: " + vue.toDisplayString($data.robotStatus.move_status),
-            1
-            /* TEXT */
-          )
-        ])) : (vue.openBlock(), vue.createElementBlock("view", { key: 1 }, [
-          vue.createElementVNode("text", null, "正在获取状态...")
-        ]))
-      ]),
-      vue.createElementVNode("view", { class: "control-card" }, [
-        vue.createElementVNode("text", { class: "title" }, "发送指令"),
-        vue.createElementVNode("button", {
-          class: "control-button",
-          onClick: _cache[0] || (_cache[0] = (...args) => $options.sendMoveCommand && $options.sendMoveCommand(...args)),
-          disabled: $options.isCommandRunning
-        }, "移动到 (1.0, 2.0)", 8, ["disabled"]),
-        $data.lastCommand ? (vue.openBlock(), vue.createElementBlock("view", {
-          key: 0,
-          class: "command-feedback"
-        }, [
-          vue.createElementVNode(
-            "text",
-            null,
-            "上一条指令状态: " + vue.toDisplayString($options.formattedCommandStatus),
-            1
-            /* TEXT */
-          )
-        ])) : vue.createCommentVNode("v-if", true)
+    return vue.openBlock(), vue.createElementBlock("view", { class: "chat-container" }, [
+      vue.createElementVNode("scroll-view", {
+        "scroll-y": true,
+        class: "message-list",
+        "scroll-top": $data.scrollTop
+      }, [
+        (vue.openBlock(true), vue.createElementBlock(
+          vue.Fragment,
+          null,
+          vue.renderList($data.messages, (message, index) => {
+            return vue.openBlock(), vue.createElementBlock(
+              "view",
+              {
+                key: index,
+                class: vue.normalizeClass(["message-item", message.sender])
+              },
+              [
+                vue.createElementVNode("image", {
+                  src: message.avatar,
+                  class: "avatar"
+                }, null, 8, ["src"]),
+                vue.createElementVNode("view", { class: "message-content" }, [
+                  vue.createElementVNode("view", { class: "message-bubble" }, [
+                    vue.createElementVNode(
+                      "text",
+                      null,
+                      vue.toDisplayString(message.text),
+                      1
+                      /* TEXT */
+                    )
+                  ])
+                ])
+              ],
+              2
+              /* CLASS */
+            );
+          }),
+          128
+          /* KEYED_FRAGMENT */
+        ))
+      ], 8, ["scroll-top"]),
+      vue.createElementVNode("view", { class: "input-area" }, [
+        vue.createElementVNode("image", {
+          src: $data.isVoiceMode ? "/static/keyboard.png" : "/static/microphone.png",
+          class: "mode-switch-icon",
+          onClick: _cache[0] || (_cache[0] = (...args) => $options.toggleInputMode && $options.toggleInputMode(...args))
+        }, null, 8, ["src"]),
+        !$data.isVoiceMode ? vue.withDirectives((vue.openBlock(), vue.createElementBlock(
+          "input",
+          {
+            key: 0,
+            type: "text",
+            "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $data.inputValue = $event),
+            placeholder: "请输入...",
+            class: "input-field",
+            onConfirm: _cache[2] || (_cache[2] = (...args) => $options.sendTextMessage && $options.sendTextMessage(...args))
+          },
+          null,
+          544
+          /* NEED_HYDRATION, NEED_PATCH */
+        )), [
+          [vue.vModelText, $data.inputValue]
+        ]) : vue.createCommentVNode("v-if", true),
+        !$data.isVoiceMode ? (vue.openBlock(), vue.createElementBlock("button", {
+          key: 1,
+          onClick: _cache[3] || (_cache[3] = (...args) => $options.sendTextMessage && $options.sendTextMessage(...args)),
+          class: "send-button"
+        }, "发送")) : vue.createCommentVNode("v-if", true),
+        $data.isVoiceMode ? (vue.openBlock(), vue.createElementBlock(
+          "button",
+          {
+            key: 2,
+            class: "voice-button",
+            onLongpress: _cache[4] || (_cache[4] = (...args) => $options.startRecording && $options.startRecording(...args)),
+            onTouchend: _cache[5] || (_cache[5] = (...args) => $options.stopRecording && $options.stopRecording(...args))
+          },
+          vue.toDisplayString($data.isRecording ? "松开结束" : "按住说话"),
+          33
+          /* TEXT, NEED_HYDRATION */
+        )) : vue.createCommentVNode("v-if", true)
       ])
     ]);
   }
-  const PagesChatChat = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["render", _sfc_render$6], ["__file", "/Users/llx/Documents/HBuilderProjects/haven_demo/pages/chat/chat.vue"]]);
+  const PagesChatChat = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["render", _sfc_render$6], ["__scopeId", "data-v-0a633310"], ["__file", "/Users/llx/Documents/HBuilderProjects/haven_demo/pages/chat/chat.vue"]]);
   const _sfc_main$6 = {
     data() {
       return {
@@ -4114,11 +4137,19 @@ ${o3}
   const _sfc_main$1 = {
     data() {
       return {
-        name: ""
+        name: "",
+        isLoading: false,
+        loadingText: "",
+        pollingInterval: null
       };
     },
+    onUnload() {
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+      }
+    },
     methods: {
-      startRegistration() {
+      async startRegistration() {
         if (!this.name.trim()) {
           uni.showToast({
             title: "请输入名字",
@@ -4126,15 +4157,95 @@ ${o3}
           });
           return;
         }
-        uni.showToast({
-          title: `已为 ${this.name} 开始注册`,
-          icon: "success"
-        });
+        try {
+          this.loadingText = "正在录入，请正视摄像头\n微微变换脸部角度...";
+          await this.executeCommand("register_face", { name: this.name.trim() });
+          uni.showToast({
+            title: "人脸注册成功！",
+            icon: "success"
+          });
+        } catch (error) {
+          uni.showToast({
+            title: `注册失败: ${error.message}`,
+            icon: "none"
+          });
+        }
+      },
+      // 核心逻辑：提交任务并等待结果 (与点位设置页面相同)
+      async executeCommand(task, params = {}) {
+        this.isLoading = true;
+        if (this.pollingInterval) {
+          clearInterval(this.pollingInterval);
+        }
+        try {
+          const postRes = await tr.callFunction({
+            name: "postCommand",
+            data: { task, params }
+          });
+          if (!postRes.result.success) {
+            throw new Error(postRes.result.errMsg || "提交指令失败");
+          }
+          const commandId = postRes.result.commandId;
+          return new Promise((resolve, reject) => {
+            const timeoutTimer = setTimeout(() => {
+              clearInterval(this.pollingInterval);
+              this.isLoading = false;
+              reject(new Error("请求超时，请检查网络或机器人客户端状态"));
+            }, 6e4);
+            this.pollingInterval = setInterval(async () => {
+              try {
+                const resultRes = await tr.callFunction({
+                  name: "getCommandResult",
+                  data: { commandId }
+                });
+                if (resultRes.result.success && resultRes.result.command) {
+                  const command = resultRes.result.command;
+                  if (command.status === "completed") {
+                    clearTimeout(timeoutTimer);
+                    clearInterval(this.pollingInterval);
+                    this.isLoading = false;
+                    resolve(command.result);
+                  } else if (command.status === "failed") {
+                    clearTimeout(timeoutTimer);
+                    clearInterval(this.pollingInterval);
+                    this.isLoading = false;
+                    reject(new Error(command.error_message || "任务执行失败"));
+                  }
+                } else if (!resultRes.result.success) {
+                  throw new Error(resultRes.result.errMsg || "查询结果失败");
+                }
+              } catch (pollError) {
+                clearTimeout(timeoutTimer);
+                clearInterval(this.pollingInterval);
+                this.isLoading = false;
+                reject(pollError);
+              }
+            }, 3e3);
+          });
+        } catch (error) {
+          this.isLoading = false;
+          uni.showToast({ title: error.message, icon: "none" });
+          return Promise.reject(error);
+        }
       }
     }
   };
   function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "page-container" }, [
+      vue.createCommentVNode(" 全屏加载动画 "),
+      $data.isLoading ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "loading-overlay"
+      }, [
+        vue.createElementVNode("view", { class: "loading-spinner" }),
+        vue.createElementVNode(
+          "text",
+          { class: "loading-text" },
+          vue.toDisplayString($data.loadingText),
+          1
+          /* TEXT */
+        )
+      ])) : vue.createCommentVNode("v-if", true),
       vue.createElementVNode("view", { class: "content-wrapper" }, [
         vue.createElementVNode("text", { class: "title" }, "请面对摄像头，输入人员姓名"),
         vue.withDirectives(vue.createElementVNode(

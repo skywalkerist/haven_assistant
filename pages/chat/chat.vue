@@ -1,219 +1,239 @@
 <template>
-  <view class="container">
-    <view class="status-card">
-      <text class="title">机器人状态</text>
-      <view v-if="robotStatus && robotStatus.current_pose">
-        <text>坐标: ({{ robotStatus.current_pose.x.toFixed(2) }}, {{ robotStatus.current_pose.y.toFixed(2) }})</text>
-        <text>角度: {{ robotStatus.current_pose.theta.toFixed(2) }}</text>
-        <text>电量: {{ robotStatus.power_percent }}%</text>
-        <text>移动状态: {{ robotStatus.move_status }}</text>
-      </view>
-      <view v-else>
-        <text>正在获取状态...</text>
-      </view>
-    </view>
+	<view class="chat-container">
+		<scroll-view :scroll-y="true" class="message-list" :scroll-top="scrollTop">
+			<view v-for="(message, index) in messages" :key="index" class="message-item" :class="message.sender">
+				<image :src="message.avatar" class="avatar"></image>
+				<view class="message-content">
+					<view class="message-bubble">
+						<text>{{ message.text }}</text>
+					</view>
+				</view>
+			</view>
+		</scroll-view>
 
-    <view class="control-card">
-      <text class="title">发送指令</text>
-      <button class="control-button" @click="sendMoveCommand" :disabled="isCommandRunning">移动到 (1.0, 2.0)</button>
-      <view v-if="lastCommand" class="command-feedback">
-        <text>上一条指令状态: {{ formattedCommandStatus }}</text>
-      </view>
-    </view>
-  </view>
+		<view class="input-area">
+			<image :src="isVoiceMode ? '/static/keyboard.png' : '/static/microphone.png'" class="mode-switch-icon" @click="toggleInputMode"></image>
+			
+			<input v-if="!isVoiceMode" type="text" v-model="inputValue" placeholder="请输入..." class="input-field" @confirm="sendTextMessage" />
+			<button v-if="!isVoiceMode" @click="sendTextMessage" class="send-button">发送</button>
+			
+			<button v-if="isVoiceMode" class="voice-button" @longpress="startRecording" @touchend="stopRecording">
+				{{ isRecording ? '松开结束' : '按住说话' }}
+			</button>
+		</view>
+	</view>
 </template>
 
 <script>
+const recorderManager = uni.getRecorderManager();
+
 export default {
-  computed: {
-    isCommandRunning() {
-      if (!this.lastCommand) return false;
-      const runningStatus = ['pending', 'sent'];
-      return runningStatus.includes(this.lastCommand.status);
-    },
-    formattedCommandStatus() {
-      if (!this.lastCommand) return '无';
-      switch (this.lastCommand.status) {
-        case 'pending':
-        case 'sent':
-          return '机器人处理中...';
-        case 'completed':
-          return '执行完成';
-        case 'failed':
-          return '执行失败';
-        default:
-          return '未知';
-      }
-    }
-  },
-  data() {
-    return {
-      robotStatus: null,
-      lastCommand: null,
-    };
-  },
-  onLoad() {
-    this.initialize();
-    this.listenToPush();
-  },
-  methods: {
-    // 1. 初始化
-    async initialize() {
-      console.log("Initializing page...");
-      // 页面加载时，获取一次最新的状态
-      this.fetchStatus();
-      // 注册客户端ID
-      this.registerClientId();
-    },
-    
-    // 2. 注册推送
-    registerClientId() {
-      uni.getPushClientId({
-        success: (res) => {
-          console.log('Successfully get client id:', res.cid);
-          uniCloud.callFunction({
-            name: 'updateClientInfo',
-            data: { cid: res.cid }
-          }).then(() => {
-            console.log('Client ID registered to cloud.');
-          }).catch(err => {
-            console.error('Failed to register Client ID:', err);
-          });
-        },
-        fail(err) {
-          console.error('Failed to get client id:', err);
-        }
-      });
-    },
-
-    // 3. 监听推送消息
-    listenToPush() {
-      uni.onPushMessage((res) => {
-        console.log("Received push message:", res);
-        if (res.type === 'click') {
-          // 这是点击通知栏的消息
-          const payload = res.data.payload;
-          this.handlePushPayload(payload);
-        } else if (res.type === 'receive') {
-          // 这是应用在前台时收到的透传消息
-          this.handlePushPayload(res.data);
-        }
-      });
-    },
-    
-    // 4. 处理推送内容
-    handlePushPayload(payload) {
-        if (typeof payload === 'string') {
-            try {
-                payload = JSON.parse(payload);
-            } catch(e) {
-                console.error("Failed to parse push payload:", e);
-                return;
-            }
-        }
-        
-        console.log("Handling push payload:", payload);
-        if (payload.type === 'status_updated') {
-            console.log("Handling status_updated push.");
-            this.robotStatus = payload.status;
-        } else if (payload.type === 'command_updated') {
-            console.log("Handling command_updated push.");
-            this.lastCommand = payload.command;
-        }
-    },
-
-    // 5. 主动获取状态（仅初始化时调用）
-    fetchStatus() {
-      uniCloud.callFunction({
-        name: 'getRobotStatus'
-      }).then(res => {
-        if (res.result && res.result.success) {
-          this.robotStatus = res.result.status;
-        }
-      }).catch(err => {
-        console.error("Failed to fetch robot status:", err);
-      });
-    },
-    
-    // 6. 发送指令
-    sendMoveCommand() {
-      const command = '/api/move?marker=test_point';
-      const params = {
-        type: 'move',
-        name: 'test_point',
-        x: 1.0,
-        y: 2.0,
-        theta: 90.0
-      };
-
-      uni.showLoading({ title: '发送指令中...' });
-
-      uniCloud.callFunction({
-        name: 'sendRobotCommand',
-        data: { command: command, params: params }
-      }).then(res => {
-        uni.hideLoading();
-        if (res.result && res.result.success && res.result.command) {
-          this.lastCommand = res.result.command;
-          uni.showToast({ title: '指令已发送', icon: 'success' });
-        } else {
-          throw new Error(res.result.message || '发送失败');
-        }
-      }).catch(err => {
-        uni.hideLoading();
-        uni.showToast({ title: err.message || '发送失败', icon: 'none' });
-      });
-    }
-  }
+	data() {
+		return {
+			inputValue: '',
+			scrollTop: 0,
+			messages: [{
+				sender: 'robot',
+				avatar: '/static/robot.png',
+				text: '你好！有什么可以帮你的吗？'
+			}],
+			isVoiceMode: false,
+			isRecording: false,
+		};
+	},
+	onLoad() {
+		this.initRecorder();
+		// 监听推送消息，用于接收AI回复
+		uni.onPushMessage((res) => {
+			console.log("收到推送消息:", res);
+			if (res.type === 'receive') {
+				this.handlePushPayload(res.data);
+			}
+		});
+	},
+	methods: {
+		initRecorder() {
+			recorderManager.onStop((res) => {
+				this.isRecording = false;
+				uni.hideLoading();
+				console.log('录音停止', res);
+				this.uploadAudio(res.tempFilePath);
+			});
+			recorderManager.onError((err) => {
+				this.isRecording = false;
+				uni.hideLoading();
+				uni.showToast({ title: '录音失败', icon: 'none' });
+				console.error('录音失败', err);
+			});
+		},
+		toggleInputMode() {
+			this.isVoiceMode = !this.isVoiceMode;
+		},
+		sendTextMessage() {
+			if (!this.inputValue.trim()) {
+				uni.showToast({ title: '消息不能为空', icon: 'none' });
+				return;
+			}
+			const text = this.inputValue;
+			this.addMessage('user', text);
+			this.inputValue = '';
+			
+			// 调用云函数发送文字指令
+			this.postDialogueCommand(text);
+		},
+		startRecording() {
+			this.isRecording = true;
+			uni.showLoading({ title: '正在录音...' });
+			recorderManager.start({
+				sampleRate: 16000,
+				numberOfChannels: 1,
+				format: 'pcm'
+			});
+		},
+		stopRecording() {
+			if (this.isRecording) {
+				recorderManager.stop();
+			}
+		},
+		uploadAudio(filePath) {
+			uni.getFileSystemManager().readFile({
+				filePath: filePath,
+				encoding: 'base64',
+				success: (res) => {
+					uni.showLoading({ title: '识别中...' });
+					uniCloud.callFunction({
+						name: 'uploadAudioForASR',
+						data: {
+							audioBase64: res.data
+						}
+					}).then(() => {
+						uni.hideLoading();
+						uni.showToast({ title: '语音已发送', icon: 'success' });
+					}).catch(err => {
+						uni.hideLoading();
+						uni.showToast({ title: '语音发送失败', icon: 'none' });
+					});
+				},
+				fail: (err) => {
+					uni.showToast({ title: '读取文件失败', icon: 'none' });
+				}
+			});
+		},
+		postDialogueCommand(text) {
+			uniCloud.callFunction({
+				name: 'postCommand',
+				data: {
+					task: 'dialogue',
+					params: { text: text }
+				}
+			}).catch(err => {
+				uni.showToast({ title: '指令发送失败', icon: 'none' });
+			});
+		},
+		addMessage(sender, text) {
+			const avatar = sender === 'user' ? '/static/icon_user.png' : '/static/robot.png';
+			this.messages.push({ sender, text, avatar });
+			this.scrollToBottom();
+		},
+		handlePushPayload(payload) {
+			if (typeof payload === 'string') {
+				try {
+					payload = JSON.parse(payload);
+				} catch (e) {
+					console.error("解析推送payload失败:", e);
+					return;
+				}
+			}
+			if (payload.type === 'dialogue_response' && payload.text) {
+				this.addMessage('robot', payload.text);
+			}
+		},
+		scrollToBottom() {
+			this.$nextTick(() => {
+				this.scrollTop = this.messages.length * 1000;
+			});
+		}
+	}
 };
 </script>
 
-<style>
-.container {
-  padding: 20px;
-  background-color: #f4f4f4;
-  min-height: 100vh;
+<style scoped>
+.chat-container {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	background-color: #f4f4f4;
 }
-.status-card, .control-card {
-  background-color: #fff;
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.message-list {
+	flex: 1;
+	padding: 20rpx;
+	box-sizing: border-box;
+	overflow-y: auto;
 }
-.title {
-  font-size: 18px;
-  font-weight: bold;
-  margin-bottom: 10px;
-  display: block;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
+.message-item {
+	display: flex;
+	margin-bottom: 30rpx;
 }
-.status-card text {
-  display: block;
-  margin-top: 5px;
-  color: #333;
+.message-item.user {
+	flex-direction: row-reverse;
 }
-.control-button {
-  width: 100%;
-  height: 45px;
-  background-color: #007aff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 10px;
+.avatar {
+	width: 80rpx;
+	height: 80rpx;
+	border-radius: 50%;
+	margin: 0 20rpx;
 }
-.control-button[disabled] {
-  background-color: #c8c7cc;
+.message-content {
+	max-width: 70%;
 }
-.command-feedback {
-  margin-top: 15px;
-  padding: 10px;
-  background-color: #f0f0f0;
-  border-radius: 5px;
-  text-align: center;
+.message-bubble {
+	background-color: #ffffff;
+	padding: 20rpx;
+	border-radius: 15rpx;
+	word-wrap: break-word;
+}
+.message-item.user .message-bubble {
+	background-color: #a0e959;
+}
+.input-area {
+	display: flex;
+	align-items: center;
+	padding: 20rpx;
+	background-color: #ffffff;
+	border-top: 1rpx solid #e0e0e0;
+}
+.mode-switch-icon {
+	width: 60rpx;
+	height: 60rpx;
+	margin-right: 20rpx;
+}
+.input-field {
+	flex: 1;
+	height: 70rpx;
+	background-color: #f4f4f4;
+	border-radius: 35rpx;
+	padding: 0 30rpx;
+	font-size: 28rpx;
+}
+.send-button {
+	width: 120rpx;
+	height: 70rpx;
+	line-height: 70rpx;
+	margin-left: 20rpx;
+	background-color: #007aff;
+	color: white;
+	border: none;
+	border-radius: 35rpx;
+	font-size: 28rpx;
+	text-align: center;
+}
+.voice-button {
+	flex: 1;
+	height: 70rpx;
+	line-height: 70rpx;
+	background-color: #007aff;
+	color: white;
+	border-radius: 35rpx;
+	text-align: center;
 }
 </style>

@@ -3,7 +3,7 @@
     "configurations" : [
         {
             "app" : {
-                "launchtype" : "remote"
+                "launchtype" : "local"
             },
             "default" : {
                 "launchtype" : "local"
