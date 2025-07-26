@@ -54,9 +54,9 @@ export default {
 	methods: {
 		initRecorder() {
 			recorderManager.onStop((res) => {
+				console.log('onStop triggered', res);
 				this.isRecording = false;
 				uni.hideLoading();
-				console.log('录音停止', res);
 				this.uploadAudio(res.tempFilePath);
 			});
 			recorderManager.onError((err) => {
@@ -77,8 +77,6 @@ export default {
 			const text = this.inputValue;
 			this.addMessage('user', text);
 			this.inputValue = '';
-			
-			// 调用云函数发送文字指令
 			this.postDialogueCommand(text);
 		},
 		startRecording() {
@@ -95,27 +93,24 @@ export default {
 				recorderManager.stop();
 			}
 		},
-		uploadAudio(filePath) {
-			uni.getFileSystemManager().readFile({
-				filePath: filePath,
-				encoding: 'base64',
-				success: (res) => {
-					uni.showLoading({ title: '识别中...' });
-					uniCloud.callFunction({
-						name: 'uploadAudioForASR',
-						data: {
-							audioBase64: res.data
-						}
-					}).then(() => {
-						uni.hideLoading();
-						uni.showToast({ title: '语音已发送', icon: 'success' });
-					}).catch(err => {
-						uni.hideLoading();
-						uni.showToast({ title: '语音发送失败', icon: 'none' });
-					});
+		uploadAudio(tempFilePath) {
+			console.log('uploadAudio called with temp path:', tempFilePath);
+			uni.showLoading({ title: '上传录音中...' });
+			
+			// 使用 uni.uploadFile 将文件上传到云存储
+			uniCloud.uploadFile({
+				filePath: tempFilePath,
+				cloudPath: `audio_records/${Date.now()}.pcm`, // 在云存储中创建一个唯一的文件名
+				success: (uploadRes) => {
+					uni.hideLoading();
+					console.log('Upload success, fileID:', uploadRes.fileID);
+					// 上传成功后，fileID 就是文件的云存储地址
+					this.postSpeechToTextCommand(uploadRes.fileID);
 				},
-				fail: (err) => {
-					uni.showToast({ title: '读取文件失败', icon: 'none' });
+				fail: (uploadErr) => {
+					uni.hideLoading();
+					console.error('Upload failed', uploadErr);
+					uni.showToast({ title: '录音上传失败', icon: 'none' });
 				}
 			});
 		},
@@ -126,9 +121,68 @@ export default {
 					task: 'dialogue',
 					params: { text: text }
 				}
+			}).then(res => {
+				if (res.result && res.result.success) {
+					this.pollResult(res.result.commandId);
+				} else {
+					uni.showToast({ title: '指令发送失败', icon: 'none' });
+				}
 			}).catch(err => {
-				uni.showToast({ title: '指令发送失败', icon: 'none' });
+				uni.showToast({ title: '指令发送异常', icon: 'none' });
 			});
+		},
+		postSpeechToTextCommand(audioUrl) {
+			console.log('postSpeechToTextCommand called with URL:', audioUrl);
+			uni.showLoading({ title: '正在识别...' });
+			uniCloud.callFunction({
+				name: 'postCommand',
+				data: {
+					task: 'speech_to_text',
+					params: { audioUrl: audioUrl } // 参数从 audioBase64 改为 audioUrl
+				}
+			}).then(res => {
+				console.log('postCommand for speech_to_text success', res);
+				if (res.result && res.result.success) {
+					this.pollResult(res.result.commandId);
+				} else {
+					uni.hideLoading();
+					uni.showToast({ title: '语音任务提交失败', icon: 'none' });
+					console.error('postCommand for speech_to_text failed', res);
+				}
+			}).catch(err => {
+				uni.hideLoading();
+				uni.showToast({ title: '语音任务提交异常', icon: 'none' });
+				console.error('postCommand for speech_to_text error', err);
+			});
+		},
+		pollResult(commandId) {
+			const interval = setInterval(() => {
+				uniCloud.callFunction({
+					name: 'getCommandResult',
+					data: { commandId: commandId }
+				}).then(res => {
+					if (res.result && res.result.success) {
+						const command = res.result.command;
+						if (command.status === 'completed') {
+							uni.hideLoading();
+							clearInterval(interval);
+							if (command.result && command.result.text) {
+								this.addMessage('robot', command.result.text);
+							} else {
+								uni.showToast({ title: 'AI回复为空', icon: 'none' });
+							}
+						} else if (command.status === 'failed') {
+							uni.hideLoading();
+							clearInterval(interval);
+							uni.showToast({ title: '任务处理失败', icon: 'none' });
+						}
+					}
+				}).catch(err => {
+					uni.hideLoading();
+					clearInterval(interval);
+					uni.showToast({ title: '查询结果失败', icon: 'none' });
+				});
+			}, 3000); // 每3秒轮询一次
 		},
 		addMessage(sender, text) {
 			const avatar = sender === 'user' ? '/static/icon_user.png' : '/static/robot.png';

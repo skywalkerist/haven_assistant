@@ -588,7 +588,7 @@ if (uni.restoreGlobal) {
   function T(e2) {
     return e2 && "string" == typeof e2 ? JSON.parse(e2) : e2;
   }
-  const b = true, E = "app", A = T(define_process_env_UNI_SECURE_NETWORK_CONFIG_default), P = E, C = T('{"address":["127.0.0.1","172.18.4.228","100.90.189.29"],"servePort":7002,"debugPort":9001,"initialLaunchType":"local","skipFiles":["<node_internals>/**","/Applications/HBuilderX.app/Contents/HBuilderX/plugins/unicloud/**/*.js"]}'), O = T('[{"provider":"aliyun","spaceName":"havenyun","spaceId":"mp-503540be-00e4-400c-86f1-957c9c805a91","clientSecret":"n8MfgAcFEz8wTmaBGpf2sQ==","endpoint":"https://api.next.bspapp.com"}]') || [];
+  const b = true, E = "app", A = T(define_process_env_UNI_SECURE_NETWORK_CONFIG_default), P = E, C = T('{"address":["127.0.0.1","172.18.13.62","100.90.189.29"],"servePort":7002,"debugPort":9001,"initialLaunchType":"local","skipFiles":["<node_internals>/**","/Applications/HBuilderX.app/Contents/HBuilderX/plugins/unicloud/**/*.js"]}'), O = T('[{"provider":"aliyun","spaceName":"havenyun","spaceId":"mp-503540be-00e4-400c-86f1-957c9c805a91","clientSecret":"n8MfgAcFEz8wTmaBGpf2sQ==","endpoint":"https://api.next.bspapp.com"}]') || [];
   let N = "";
   try {
     N = "__UNI__73C8DF0";
@@ -3148,9 +3148,9 @@ ${o3}
     methods: {
       initRecorder() {
         recorderManager.onStop((res) => {
+          formatAppLog("log", "at pages/chat/chat.vue:57", "onStop triggered", res);
           this.isRecording = false;
           uni.hideLoading();
-          formatAppLog("log", "at pages/chat/chat.vue:59", "录音停止", res);
           this.uploadAudio(res.tempFilePath);
         });
         recorderManager.onError((err) => {
@@ -3187,27 +3187,22 @@ ${o3}
           recorderManager.stop();
         }
       },
-      uploadAudio(filePath) {
-        uni.getFileSystemManager().readFile({
-          filePath,
-          encoding: "base64",
-          success: (res) => {
-            uni.showLoading({ title: "识别中..." });
-            tr.callFunction({
-              name: "uploadAudioForASR",
-              data: {
-                audioBase64: res.data
-              }
-            }).then(() => {
-              uni.hideLoading();
-              uni.showToast({ title: "语音已发送", icon: "success" });
-            }).catch((err) => {
-              uni.hideLoading();
-              uni.showToast({ title: "语音发送失败", icon: "none" });
-            });
+      uploadAudio(tempFilePath) {
+        formatAppLog("log", "at pages/chat/chat.vue:97", "uploadAudio called with temp path:", tempFilePath);
+        uni.showLoading({ title: "上传录音中..." });
+        tr.uploadFile({
+          filePath: tempFilePath,
+          cloudPath: `audio_records/${Date.now()}.pcm`,
+          // 在云存储中创建一个唯一的文件名
+          success: (uploadRes) => {
+            uni.hideLoading();
+            formatAppLog("log", "at pages/chat/chat.vue:106", "Upload success, fileID:", uploadRes.fileID);
+            this.postSpeechToTextCommand(uploadRes.fileID);
           },
-          fail: (err) => {
-            uni.showToast({ title: "读取文件失败", icon: "none" });
+          fail: (uploadErr) => {
+            uni.hideLoading();
+            formatAppLog("error", "at pages/chat/chat.vue:112", "Upload failed", uploadErr);
+            uni.showToast({ title: "录音上传失败", icon: "none" });
           }
         });
       },
@@ -3218,9 +3213,69 @@ ${o3}
             task: "dialogue",
             params: { text }
           }
+        }).then((res) => {
+          if (res.result && res.result.success) {
+            this.pollResult(res.result.commandId);
+          } else {
+            uni.showToast({ title: "指令发送失败", icon: "none" });
+          }
         }).catch((err) => {
-          uni.showToast({ title: "指令发送失败", icon: "none" });
+          uni.showToast({ title: "指令发送异常", icon: "none" });
         });
+      },
+      postSpeechToTextCommand(audioUrl) {
+        formatAppLog("log", "at pages/chat/chat.vue:135", "postSpeechToTextCommand called with URL:", audioUrl);
+        uni.showLoading({ title: "正在识别..." });
+        tr.callFunction({
+          name: "postCommand",
+          data: {
+            task: "speech_to_text",
+            params: { audioUrl }
+            // 参数从 audioBase64 改为 audioUrl
+          }
+        }).then((res) => {
+          formatAppLog("log", "at pages/chat/chat.vue:144", "postCommand for speech_to_text success", res);
+          if (res.result && res.result.success) {
+            this.pollResult(res.result.commandId);
+          } else {
+            uni.hideLoading();
+            uni.showToast({ title: "语音任务提交失败", icon: "none" });
+            formatAppLog("error", "at pages/chat/chat.vue:150", "postCommand for speech_to_text failed", res);
+          }
+        }).catch((err) => {
+          uni.hideLoading();
+          uni.showToast({ title: "语音任务提交异常", icon: "none" });
+          formatAppLog("error", "at pages/chat/chat.vue:155", "postCommand for speech_to_text error", err);
+        });
+      },
+      pollResult(commandId) {
+        const interval = setInterval(() => {
+          tr.callFunction({
+            name: "getCommandResult",
+            data: { commandId }
+          }).then((res) => {
+            if (res.result && res.result.success) {
+              const command = res.result.command;
+              if (command.status === "completed") {
+                uni.hideLoading();
+                clearInterval(interval);
+                if (command.result && command.result.text) {
+                  this.addMessage("robot", command.result.text);
+                } else {
+                  uni.showToast({ title: "AI回复为空", icon: "none" });
+                }
+              } else if (command.status === "failed") {
+                uni.hideLoading();
+                clearInterval(interval);
+                uni.showToast({ title: "任务处理失败", icon: "none" });
+              }
+            }
+          }).catch((err) => {
+            uni.hideLoading();
+            clearInterval(interval);
+            uni.showToast({ title: "查询结果失败", icon: "none" });
+          });
+        }, 3e3);
       },
       addMessage(sender, text) {
         const avatar = sender === "user" ? "/static/icon_user.png" : "/static/robot.png";
@@ -3232,7 +3287,7 @@ ${o3}
           try {
             payload = JSON.parse(payload);
           } catch (e2) {
-            formatAppLog("error", "at pages/chat/chat.vue:143", "解析推送payload失败:", e2);
+            formatAppLog("error", "at pages/chat/chat.vue:197", "解析推送payload失败:", e2);
             return;
           }
         }
