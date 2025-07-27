@@ -1,5 +1,11 @@
 <template>
 	<view class="page-container">
+		<!-- 全屏加载动画 -->
+		<view v-if="isLoading" class="loading-overlay">
+			<view class="loading-spinner"></view>
+			<text class="loading-text">{{ loadingText }}</text>
+		</view>
+		
 		<!-- 1. 自定义导航栏 -->
 		<view class="custom-nav-bar">
 			<text class="back-arrow" @click="goBack">&lt;</text>
@@ -27,7 +33,10 @@
 		<!-- 3. 点位选择区域 -->
 		<view class="point-selection-section">
 			<text class="section-title">点位选择</text>
-			<view class="available-points-grid">
+			<view v-if="availablePoints.length === 0 && !isLoading" class="empty-points-prompt">
+				<text>暂无可用点位，请先在点位设置中添加点位</text>
+			</view>
+			<view v-else class="available-points-grid">
 				<view class="available-point-card" v-for="(point, index) in availablePoints" :key="index">
 					<image src="/static/icon_positon.png" class="point-icon" mode="aspectFit"></image>
 					<view class="point-info">
@@ -51,17 +60,126 @@
 		data() {
 			return {
 				availablePoints: [],
-				selectedPoints: []
+				selectedPoints: [],
+				isLoading: false,
+				loadingText: '加载中...',
+				pollingInterval: null
 			};
 		},
 		onLoad() {
-			// 加载所有可用点位，不再过滤
-			this.availablePoints = uni.getStorageSync('points') || [];
+			// 从云端获取可用点位
+			this.loadAvailablePoints();
+		},
+		onUnload() {
+			// 页面卸载时清除定时器
+			if (this.pollingInterval) {
+				clearInterval(this.pollingInterval);
+			}
 		},
 		methods: {
 			goBack() {
 				uni.navigateBack();
 			},
+			
+			// 核心逻辑：提交任务并等待结果（参考点位设置页面）
+			async executeCommand(task, params = {}, loadingText = '处理中...') {
+				this.isLoading = true;
+				this.loadingText = loadingText;
+
+				// 清除上一个定时器，防止多个定时器同时运行
+				if (this.pollingInterval) {
+					clearInterval(this.pollingInterval);
+				}
+
+				try {
+					// 1. 提交指令
+					const postRes = await uniCloud.callFunction({
+						name: 'postCommand',
+						data: { task, params }
+					});
+
+					if (!postRes.result.success) {
+						throw new Error(postRes.result.errMsg || '提交指令失败');
+					}
+					const commandId = postRes.result.commandId;
+
+					// 2. 轮询结果
+					return new Promise((resolve, reject) => {
+						const timeoutTimer = setTimeout(() => {
+							clearInterval(this.pollingInterval);
+							this.isLoading = false;
+							reject(new Error('请求超时，请检查网络或机器人客户端状态'));
+						}, 20000); // 20秒超时
+
+						this.pollingInterval = setInterval(async () => {
+							try {
+								const resultRes = await uniCloud.callFunction({
+									name: 'getCommandResult',
+									data: {
+										commandId
+									}
+								});
+
+								if (resultRes.result.success && resultRes.result.command) {
+									const command = resultRes.result.command;
+									if (command.status === 'completed') {
+										clearTimeout(timeoutTimer);
+										clearInterval(this.pollingInterval);
+										this.isLoading = false;
+										resolve(command.result);
+									} else if (command.status === 'failed') {
+										clearTimeout(timeoutTimer);
+										clearInterval(this.pollingInterval);
+										this.isLoading = false;
+										reject(new Error(command.error_message || '任务执行失败'));
+									}
+									// 如果是 pending 或 processing，则继续轮询
+								} else if (!resultRes.result.success) {
+									// 查询本身失败
+									throw new Error(resultRes.result.errMsg || '查询结果失败');
+								}
+							} catch (pollError) {
+								clearTimeout(timeoutTimer);
+								clearInterval(this.pollingInterval);
+								this.isLoading = false;
+								reject(pollError);
+							}
+						}, 2000); // 每2秒查询一次
+					});
+				} catch (error) {
+					this.isLoading = false;
+					uni.showToast({ title: error.message, icon: 'none' });
+					return Promise.reject(error);
+				}
+			},
+			
+			// 从云端获取可用点位
+			async loadAvailablePoints() {
+				try {
+					const result = await this.executeCommand('get_marker_list', {}, '正在获取点位列表...');
+					// 将结果转换为数组格式
+					this.availablePoints = result ? Object.keys(result).map(key => ({ 
+						name: key, 
+						location: key, // 使用点位名称作为位置显示
+						...result[key] 
+					})) : [];
+					
+					// 如果没有点位，显示提示
+					if (this.availablePoints.length === 0) {
+						uni.showToast({ title: '暂无点位，请先在点位设置中添加', icon: 'none' });
+					}
+				} catch (error) {
+					console.error('获取点位列表失败:', error);
+					// 如果获取失败，尝试从本地存储获取（备用方案）
+					const storedPoints = uni.getStorageSync('points');
+					if (storedPoints) {
+						this.availablePoints = storedPoints;
+					} else {
+						uni.showToast({ title: `获取点位失败: ${error.message}`, icon: 'none' });
+					}
+				}
+			},
+			
 			addPointToRoute(index) {
 				const point = this.availablePoints.splice(index, 1)[0];
 				this.selectedPoints.push(point);
@@ -70,7 +188,7 @@
 				const point = this.selectedPoints.splice(index, 1)[0];
 				this.availablePoints.push(point);
 			},
-			confirmAddRoute() {
+			async confirmAddRoute() {
 				if (this.selectedPoints.length < 2) {
 					uni.showToast({
 						title: '请至少选择两个点位',
@@ -79,53 +197,72 @@
 					return;
 				}
 
-				const routes = uni.getStorageSync('patrol_routes') || [];
+				try {
+					const newRoute = {
+						name: `路线 ${Date.now()}`, // 使用时间戳确保唯一性
+						description: '自定义路线',
+						points: this.selectedPoints
+					};
 
-				// 检查是否存在完全相同的路线
-				const isDuplicate = routes.some(route => {
-					if (route.points.length !== this.selectedPoints.length) {
-						return false;
-					}
-					for (let i = 0; i < route.points.length; i++) {
-						if (route.points[i].name !== this.selectedPoints[i].name) {
-							return false;
-						}
-					}
-					return true;
-				});
-
-				if (isDuplicate) {
+					// 调用云端保存路线
+					await this.executeCommand('save_patrol_route', { route: newRoute }, '正在保存路线...');
+					
 					uni.showToast({
-						title: '该路线已存在',
+						title: '路线保存成功',
+						icon: 'success'
+					});
+
+					setTimeout(() => {
+						uni.navigateBack();
+					}, 1500);
+					
+				} catch (error) {
+					console.error('保存路线失败:', error);
+					uni.showToast({
+						title: `保存失败: ${error.message}`,
 						icon: 'none'
 					});
-					return;
 				}
-
-				const newRoute = {
-					name: `路线 ${routes.length + 1}`,
-					description: '自定义路线',
-					points: this.selectedPoints
-				};
-				routes.push(newRoute);
-
-				uni.setStorageSync('patrol_routes', routes);
-				uni.$emit('routes-updated');
-
-				uni.showToast({
-					title: '路线添加成功',
-					icon: 'success'
-				});
-
-				setTimeout(() => {
-					uni.navigateBack();
-				}, 1500);
 			}
 		}
 	}
 </script>
 
 <style>
+	.loading-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.5);
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		z-index: 1000;
+	}
+
+	.loading-spinner {
+		border: 4px solid #f3f3f3;
+		border-top: 4px solid #3498db;
+		border-radius: 50%;
+		width: 40px;
+		height: 40px;
+		animation: spin 1s linear infinite;
+	}
+
+	.loading-text {
+		color: white;
+		margin-top: 15px;
+		font-size: 16px;
+	}
+
+	@keyframes spin {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
+	}
+	
 	.page-container {
 		display: flex;
 		flex-direction: column;
@@ -212,6 +349,14 @@
 		padding: 40rpx;
 		margin-top: 20rpx;
 		overflow-y: auto;
+	}
+	.empty-points-prompt {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 200rpx;
+		color: #999;
+		text-align: center;
 	}
 	.available-points-grid {
 		display: grid;

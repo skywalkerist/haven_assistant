@@ -1,0 +1,213 @@
+
+.page-container {
+		display: flex;
+		flex-direction: column;
+		background-image: url('../../static/background.png');
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position: center;
+		min-height: 100vh;
+		padding-bottom: 0.9375rem; /* 减少padding，原生TabBar会自动处理 */
+}
+
+	/* 顶部用户信息区 */
+.top-user-section {
+		display: flex;
+		padding: 1.25rem;
+		align-items: center;
+		background-color: rgba(255, 255, 255, 0.1);
+		margin: 0.625rem;
+		border-radius: 0.625rem;
+}
+.user-avatar {
+		width: 3.75rem;
+		height: 3.75rem;
+		border-radius: 1.875rem;
+		background-color: rgba(255, 255, 255, 0.3);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		margin-right: 0.9375rem;
+}
+.avatar-image {
+		width: 2.5rem;
+		height: 2.5rem;
+}
+.user-info-container {
+		flex: 1;
+}
+.user-name {
+		font-size: 1.125rem;
+		font-weight: bold;
+		color: #000000;
+		display: block;
+		margin-bottom: 0.3125rem;
+}
+.user-role {
+		font-size: 0.8125rem;
+		color: #666;
+		display: block;
+		margin-bottom: 0.625rem;
+}
+.user-stats {
+		display: flex;
+		gap: 1.25rem;
+}
+.stat-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+}
+.stat-number {
+		font-size: 1rem;
+		font-weight: bold;
+		color: #28a745;
+}
+.stat-label {
+		font-size: 0.625rem;
+		color: #999;
+		margin-top: 0.15625rem;
+}
+
+	/* 功能菜单区 */
+.menu-section {
+		padding: 0 1.25rem;
+		margin-top: 0.625rem;
+}
+.section-title {
+		font-size: 1.125rem;
+		font-weight: bold;
+		margin-bottom: 0.625rem;
+		color: #000000;
+}
+.menu-list {
+		background-color: rgba(255, 255, 255, 0.9);
+		border-radius: 0.625rem;
+		overflow: hidden;
+}
+.menu-item {
+		display: flex;
+		align-items: center;
+		padding: 0.9375rem;
+		border-bottom: 0.03125rem solid #f0f0f0;
+}
+.menu-item:last-child {
+		border-bottom: none;
+}
+.menu-icon {
+		width: 2.5rem;
+		height: 2.5rem;
+		margin-right: 0.9375rem;
+}
+.menu-icon-image {
+		width: 100%;
+		height: 100%;
+}
+.menu-content {
+		flex: 1;
+}
+.menu-title {
+		font-size: 1rem;
+		font-weight: bold;
+		color: #333;
+		display: block;
+		margin-bottom: 0.25rem;
+}
+.menu-subtitle {
+		font-size: 0.75rem;
+		color: #999;
+}
+.menu-arrow {
+		font-size: 1rem;
+		color: #ccc;
+}
+
+	/* 使用统计区 */
+.statistics-section {
+		padding: 0 1.25rem;
+		margin-top: 0.9375rem;
+}
+.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.625rem;
+}
+.stats-card {
+		background-color: rgba(255, 255, 255, 0.9);
+		border-radius: 0.46875rem;
+		padding: 0.9375rem;
+		text-align: center;
+}
+.stats-number {
+		font-size: 1.5rem;
+		font-weight: bold;
+		color: #007bff;
+		display: block;
+		margin-bottom: 0.3125rem;
+}
+.stats-label {
+		font-size: 0.75rem;
+		color: #666;
+}
+
+	/* 快速操作区 */
+.quick-actions-section {
+		padding: 0 1.25rem;
+		margin-top: 0.9375rem;
+}
+.actions-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 0.625rem;
+}
+.action-button {
+		background-color: rgba(255, 255, 255, 0.9);
+		border-radius: 0.46875rem;
+		padding: 0.78125rem;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+}
+.action-icon {
+		width: 1.875rem;
+		height: 1.875rem;
+		margin-bottom: 0.46875rem;
+}
+.action-text {
+		font-size: 0.6875rem;
+		color: #333;
+}
+
+	/* 底部导航栏 */
+.bottom-nav-bar {
+		position: fixed;
+		z-index: 100;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		display: flex;
+		justify-content: space-around;
+		align-items: center;
+		height: 3.75rem;
+		background-color: #FFFFFF;
+		border-top-left-radius: 1.25rem;
+		border-top-right-radius: 1.25rem;
+		box-shadow: 0 -0.0625rem 0.3125rem rgba(0,0,0,0.05);
+}
+.nav-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		flex: 1;
+}
+.nav-icon-image {
+		width: 1.5625rem;
+		height: 1.5625rem;
+}
+.nav-item.active .nav-icon-image {
+		transform: translateY(-0.3125rem);
+		width: 2.1875rem;
+		height: 2.1875rem;
+}

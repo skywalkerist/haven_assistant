@@ -31,11 +31,8 @@ if (uni.restoreGlobal) {
 }
 (function(vue) {
   "use strict";
-  const _imports_0$1 = "/static/robot.png";
+  const _imports_0$3 = "/static/robot.png";
   const _imports_1 = "/static/icon_trumpet.png";
-  const _imports_2 = "/static/icon_warning.png";
-  const _imports_3 = "/static/icon_robo.png";
-  const _imports_4 = "/static/icon_contact.png";
   const _export_sfc = (sfc, props) => {
     const target = sfc.__vccOpts || sfc;
     for (const [key, val] of props) {
@@ -43,7 +40,7 @@ if (uni.restoreGlobal) {
     }
     return target;
   };
-  const _sfc_main$b = {
+  const _sfc_main$d = {
     data() {
       return {
         tasks: [{
@@ -107,13 +104,13 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$a(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$c(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "page-container" }, [
       vue.createCommentVNode(" 1. 顶部状态区 "),
       vue.createElementVNode("view", { class: "top-status-section" }, [
         vue.createElementVNode("view", { class: "robot-illustration" }, [
           vue.createElementVNode("image", {
-            src: _imports_0$1,
+            src: _imports_0$3,
             mode: "aspectFit",
             class: "robot-image"
           })
@@ -184,31 +181,323 @@ if (uni.restoreGlobal) {
           class: "voice-icon"
         }),
         vue.createElementVNode("text", { class: "voice-text" }, "老吾老，以及人之老；幼吾幼，以及人之幼。")
+      ])
+    ]);
+  }
+  const PagesIndexIndex = /* @__PURE__ */ _export_sfc(_sfc_main$d, [["render", _sfc_render$c], ["__file", "/Users/llx/Documents/HBuilderProjects/haven_demo/pages/index/index.vue"]]);
+  const _imports_0$2 = "/static/icon_safety.png";
+  const _sfc_main$c = {
+    data() {
+      return {
+        isLoading: false,
+        loadingText: "加载中...",
+        systemStatus: {
+          text: "正常",
+          class: "status-normal"
+        },
+        lastCheckTime: "刚刚",
+        onlineDevices: 1,
+        totalDevices: 1,
+        safetyFunctions: [{
+          title: "紧急呼叫",
+          subtitle: "一键求助 快速响应",
+          icon: "/static/icon_warning.png"
+        }, {
+          title: "视频监控",
+          subtitle: "实时画面 安全保障",
+          icon: "/static/icon_safety.png"
+        }, {
+          title: "环境监测",
+          subtitle: "温湿度检测 环境安全",
+          icon: "/static/icon_positon.png"
+        }, {
+          title: "设备检查",
+          subtitle: "设备状态 定期巡检",
+          icon: "/static/icon_robo.png"
+        }],
+        alerts: [
+          {
+            title: "系统启动完成",
+            time: "2小时前",
+            level: "info",
+            levelText: "信息"
+          },
+          {
+            title: "定时巡检完成",
+            time: "1小时前",
+            level: "success",
+            levelText: "正常"
+          }
+        ]
+      };
+    },
+    onShow() {
+      this.updateTime();
+      this.checkSystemStatus();
+    },
+    methods: {
+      refreshStatus() {
+        this.isLoading = true;
+        this.loadingText = "刷新状态中...";
+        setTimeout(() => {
+          this.updateTime();
+          this.checkSystemStatus();
+          this.isLoading = false;
+          uni.showToast({
+            title: "状态已刷新",
+            icon: "success"
+          });
+        }, 1500);
+      },
+      updateTime() {
+        const now = /* @__PURE__ */ new Date();
+        const hours = now.getHours().toString().padStart(2, "0");
+        const minutes = now.getMinutes().toString().padStart(2, "0");
+        this.lastCheckTime = `${hours}:${minutes}`;
+      },
+      checkSystemStatus() {
+        const statuses = [
+          { text: "正常", class: "status-normal" },
+          { text: "正常", class: "status-normal" },
+          { text: "正常", class: "status-normal" },
+          { text: "注意", class: "status-warning" }
+        ];
+        this.systemStatus = statuses[Math.floor(Math.random() * statuses.length)];
+      },
+      handleFunctionClick(title) {
+        if (title === "紧急呼叫") {
+          uni.showModal({
+            title: "紧急呼叫",
+            content: "确定要发起紧急呼叫吗？",
+            success: (res) => {
+              if (res.confirm) {
+                this.addAlert("紧急呼叫已发起", "warning", "紧急");
+                uni.showToast({
+                  title: "紧急呼叫已发送",
+                  icon: "success"
+                });
+              }
+            }
+          });
+        } else if (title === "安防巡逻") {
+          uni.navigateTo({
+            url: "/pages/patrol/index"
+          });
+        } else {
+          uni.showToast({
+            title: `${title}功能开发中`,
+            icon: "none"
+          });
+        }
+      },
+      addAlert(title, level, levelText) {
+        const now = /* @__PURE__ */ new Date();
+        const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+        this.alerts.unshift({
+          title,
+          time: timeStr,
+          level,
+          levelText
+        });
+      },
+      clearAlerts() {
+        uni.showModal({
+          title: "确认清空",
+          content: "确定要清空所有报警记录吗？",
+          success: (res) => {
+            if (res.confirm) {
+              this.alerts = [];
+              uni.showToast({
+                title: "记录已清空",
+                icon: "success"
+              });
+            }
+          }
+        });
+      }
+    }
+  };
+  function _sfc_render$b(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "page-container" }, [
+      vue.createCommentVNode(" 全屏加载动画 "),
+      $data.isLoading ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "loading-overlay"
+      }, [
+        vue.createElementVNode("view", { class: "loading-spinner" }),
+        vue.createElementVNode(
+          "text",
+          { class: "loading-text" },
+          vue.toDisplayString($data.loadingText),
+          1
+          /* TEXT */
+        )
+      ])) : vue.createCommentVNode("v-if", true),
+      vue.createCommentVNode(" 1. 顶部状态区 "),
+      vue.createElementVNode("view", { class: "top-status-section" }, [
+        vue.createElementVNode("view", { class: "safety-illustration" }, [
+          vue.createElementVNode("image", {
+            src: _imports_0$2,
+            mode: "aspectFit",
+            class: "safety-image"
+          })
+        ]),
+        vue.createElementVNode("view", { class: "safety-info-container" }, [
+          vue.createElementVNode("text", { class: "info-title" }, "安全状态"),
+          vue.createElementVNode("view", { class: "safety-info-card" }, [
+            vue.createElementVNode(
+              "view",
+              {
+                class: vue.normalizeClass(["status-item", $data.systemStatus.class])
+              },
+              [
+                vue.createElementVNode(
+                  "text",
+                  null,
+                  "系统状态: " + vue.toDisplayString($data.systemStatus.text),
+                  1
+                  /* TEXT */
+                )
+              ],
+              2
+              /* CLASS */
+            ),
+            vue.createElementVNode("view", null, [
+              vue.createElementVNode(
+                "text",
+                null,
+                "最后检查: " + vue.toDisplayString($data.lastCheckTime),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode("view", null, [
+              vue.createElementVNode(
+                "text",
+                null,
+                "在线设备: " + vue.toDisplayString($data.onlineDevices) + "/" + vue.toDisplayString($data.totalDevices),
+                1
+                /* TEXT */
+              )
+            ])
+          ]),
+          vue.createElementVNode("button", {
+            class: "refresh-button",
+            onClick: _cache[0] || (_cache[0] = (...args) => $options.refreshStatus && $options.refreshStatus(...args))
+          }, "刷新状态")
+        ])
       ]),
-      vue.createCommentVNode(" 4. 底部导航栏 "),
-      vue.createElementVNode("view", { class: "bottom-nav-bar" }, [
-        vue.createElementVNode("view", { class: "nav-item" }, [
-          vue.createElementVNode("image", {
-            src: _imports_2,
-            class: "nav-icon-image"
-          })
+      vue.createCommentVNode(" 2. 安全功能区 "),
+      vue.createElementVNode("view", { class: "safety-functions-section" }, [
+        vue.createElementVNode("text", { class: "section-title" }, "安全功能"),
+        vue.createElementVNode("view", { class: "function-grid" }, [
+          (vue.openBlock(true), vue.createElementBlock(
+            vue.Fragment,
+            null,
+            vue.renderList($data.safetyFunctions, (func, index) => {
+              return vue.openBlock(), vue.createElementBlock("view", {
+                class: "function-card",
+                key: index,
+                onClick: ($event) => $options.handleFunctionClick(func.title)
+              }, [
+                vue.createElementVNode("view", { class: "card-text" }, [
+                  vue.createElementVNode(
+                    "text",
+                    { class: "card-title" },
+                    vue.toDisplayString(func.title),
+                    1
+                    /* TEXT */
+                  ),
+                  vue.createElementVNode(
+                    "text",
+                    { class: "card-subtitle" },
+                    vue.toDisplayString(func.subtitle),
+                    1
+                    /* TEXT */
+                  )
+                ]),
+                vue.createElementVNode("view", { class: "card-icon" }, [
+                  vue.createElementVNode("image", {
+                    src: func.icon,
+                    class: "card-icon-image",
+                    mode: "aspectFit"
+                  }, null, 8, ["src"])
+                ])
+              ], 8, ["onClick"]);
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
+        ])
+      ]),
+      vue.createCommentVNode(" 3. 报警记录区 "),
+      vue.createElementVNode("view", { class: "alert-history-section" }, [
+        vue.createElementVNode("view", { class: "alert-header" }, [
+          vue.createElementVNode("text", { class: "section-title" }, "报警记录"),
+          vue.createElementVNode("button", {
+            class: "clear-button",
+            onClick: _cache[1] || (_cache[1] = (...args) => $options.clearAlerts && $options.clearAlerts(...args))
+          }, "清空")
         ]),
-        vue.createElementVNode("view", { class: "nav-item active" }, [
-          vue.createElementVNode("image", {
-            src: _imports_3,
-            class: "nav-icon-image"
-          })
-        ]),
-        vue.createElementVNode("view", { class: "nav-item" }, [
-          vue.createElementVNode("image", {
-            src: _imports_4,
-            class: "nav-icon-image"
-          })
+        vue.createElementVNode("scroll-view", {
+          "scroll-y": "",
+          class: "alert-list"
+        }, [
+          $data.alerts.length === 0 ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 0,
+            class: "empty-alerts"
+          }, [
+            vue.createElementVNode("text", null, "暂无报警记录")
+          ])) : vue.createCommentVNode("v-if", true),
+          (vue.openBlock(true), vue.createElementBlock(
+            vue.Fragment,
+            null,
+            vue.renderList($data.alerts, (alert, index) => {
+              return vue.openBlock(), vue.createElementBlock(
+                "view",
+                {
+                  key: index,
+                  class: vue.normalizeClass(["alert-item", alert.level])
+                },
+                [
+                  vue.createElementVNode("view", { class: "alert-content" }, [
+                    vue.createElementVNode(
+                      "text",
+                      { class: "alert-title" },
+                      vue.toDisplayString(alert.title),
+                      1
+                      /* TEXT */
+                    ),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "alert-time" },
+                      vue.toDisplayString(alert.time),
+                      1
+                      /* TEXT */
+                    )
+                  ]),
+                  vue.createElementVNode("view", { class: "alert-level" }, [
+                    vue.createElementVNode(
+                      "text",
+                      null,
+                      vue.toDisplayString(alert.levelText),
+                      1
+                      /* TEXT */
+                    )
+                  ])
+                ],
+                2
+                /* CLASS */
+              );
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
         ])
       ])
     ]);
   }
-  const PagesIndexIndex = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["render", _sfc_render$a], ["__file", "/Users/llx/Documents/HBuilderProjects/haven_demo/pages/index/index.vue"]]);
+  const PagesSafetyIndex = /* @__PURE__ */ _export_sfc(_sfc_main$c, [["render", _sfc_render$b], ["__file", "/Users/llx/Documents/HBuilderProjects/haven_demo/pages/safety/index.vue"]]);
   function formatAppLog(type, filename, ...args) {
     if (uni.__log__) {
       uni.__log__(type, filename, ...args);
@@ -216,11 +505,367 @@ if (uni.restoreGlobal) {
       console[type].apply(console, [...args, filename]);
     }
   }
+  const _imports_0$1 = "/static/icon_user.png";
+  const _sfc_main$b = {
+    data() {
+      return {
+        userInfo: {
+          name: "管理员",
+          role: "系统管理员",
+          loginDays: 15,
+          totalCommands: 128
+        },
+        menuItems: [{
+          title: "个人设置",
+          subtitle: "修改个人信息和偏好",
+          icon: "/static/icon_personnalset.png"
+        }, {
+          title: "系统设置",
+          subtitle: "应用配置和系统参数",
+          icon: "/static/icon_robo.png"
+        }, {
+          title: "历史记录",
+          subtitle: "查看操作和使用历史",
+          icon: "/static/icon_chat.png"
+        }, {
+          title: "帮助中心",
+          subtitle: "使用说明和常见问题",
+          icon: "/static/icon_warning.png"
+        }, {
+          title: "关于应用",
+          subtitle: "版本信息和开发团队",
+          icon: "/static/icon_voice.png"
+        }],
+        statistics: [{
+          number: "89%",
+          label: "系统使用率"
+        }, {
+          number: "24h",
+          label: "在线时长"
+        }, {
+          number: "5",
+          label: "活跃设备"
+        }, {
+          number: "100%",
+          label: "任务完成率"
+        }],
+        quickActions: [{
+          title: "重启系统",
+          icon: "/static/icon_robo.png"
+        }, {
+          title: "清理缓存",
+          icon: "/static/icon_safety.png"
+        }, {
+          title: "导出日志",
+          icon: "/static/icon_delivery.png"
+        }, {
+          title: "联系客服",
+          icon: "/static/icon_contact.png"
+        }]
+      };
+    },
+    onShow() {
+      this.loadUserInfo();
+    },
+    methods: {
+      loadUserInfo() {
+        formatAppLog("log", "at pages/user/index.vue:133", "加载用户信息");
+      },
+      handleMenuClick(title) {
+        switch (title) {
+          case "个人设置":
+            uni.navigateTo({
+              url: "/pages/personalization/index"
+            });
+            break;
+          case "系统设置":
+            uni.showToast({
+              title: "系统设置功能开发中",
+              icon: "none"
+            });
+            break;
+          case "历史记录":
+            this.showHistory();
+            break;
+          case "帮助中心":
+            this.showHelp();
+            break;
+          case "关于应用":
+            this.showAbout();
+            break;
+          default:
+            uni.showToast({
+              title: `${title}功能开发中`,
+              icon: "none"
+            });
+        }
+      },
+      handleActionClick(title) {
+        switch (title) {
+          case "重启系统":
+            uni.showModal({
+              title: "确认重启",
+              content: "确定要重启系统吗？这将中断当前所有操作。",
+              success: (res) => {
+                if (res.confirm) {
+                  uni.showToast({
+                    title: "重启指令已发送",
+                    icon: "success"
+                  });
+                }
+              }
+            });
+            break;
+          case "清理缓存":
+            uni.showLoading({
+              title: "清理中..."
+            });
+            setTimeout(() => {
+              uni.hideLoading();
+              uni.showToast({
+                title: "缓存清理完成",
+                icon: "success"
+              });
+            }, 2e3);
+            break;
+          case "导出日志":
+            uni.showToast({
+              title: "日志导出功能开发中",
+              icon: "none"
+            });
+            break;
+          case "联系客服":
+            uni.showModal({
+              title: "联系客服",
+              content: "客服电话：400-123-4567\n工作时间：9:00-18:00",
+              showCancel: false
+            });
+            break;
+          default:
+            uni.showToast({
+              title: `${title}功能开发中`,
+              icon: "none"
+            });
+        }
+      },
+      showHistory() {
+        const histories = [
+          "2小时前 - 执行安防巡逻",
+          "4小时前 - 语音交互",
+          "昨天 - 添加新点位",
+          "昨天 - 物品配送完成",
+          "2天前 - 系统状态检查"
+        ];
+        uni.showModal({
+          title: "最近操作历史",
+          content: histories.join("\n"),
+          showCancel: false
+        });
+      },
+      showHelp() {
+        const helpContent = [
+          "1. 点击底部机器人图标返回主界面",
+          "2. 使用语音功能与机器人对话",
+          "3. 在点位设置中管理机器人位置",
+          "4. 通过安防巡逻设置巡检路线",
+          "5. 如遇问题请联系客服"
+        ];
+        uni.showModal({
+          title: "使用帮助",
+          content: helpContent.join("\n"),
+          showCancel: false
+        });
+      },
+      showAbout() {
+        uni.showModal({
+          title: "关于Haven App",
+          content: "版本：v1.0.0\n开发团队：Haven Tech\n更新时间：2024年7月\n\n智能机器人控制系统",
+          showCancel: false
+        });
+      }
+    }
+  };
+  function _sfc_render$a(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "page-container" }, [
+      vue.createCommentVNode(" 1. 顶部用户信息区 "),
+      vue.createElementVNode("view", { class: "top-user-section" }, [
+        vue.createElementVNode("view", { class: "user-avatar" }, [
+          vue.createElementVNode("image", {
+            src: _imports_0$1,
+            mode: "aspectFit",
+            class: "avatar-image"
+          })
+        ]),
+        vue.createElementVNode("view", { class: "user-info-container" }, [
+          vue.createElementVNode(
+            "text",
+            { class: "user-name" },
+            vue.toDisplayString($data.userInfo.name),
+            1
+            /* TEXT */
+          ),
+          vue.createElementVNode(
+            "text",
+            { class: "user-role" },
+            vue.toDisplayString($data.userInfo.role),
+            1
+            /* TEXT */
+          ),
+          vue.createElementVNode("view", { class: "user-stats" }, [
+            vue.createElementVNode("view", { class: "stat-item" }, [
+              vue.createElementVNode(
+                "text",
+                { class: "stat-number" },
+                vue.toDisplayString($data.userInfo.loginDays),
+                1
+                /* TEXT */
+              ),
+              vue.createElementVNode("text", { class: "stat-label" }, "连续登录天数")
+            ]),
+            vue.createElementVNode("view", { class: "stat-item" }, [
+              vue.createElementVNode(
+                "text",
+                { class: "stat-number" },
+                vue.toDisplayString($data.userInfo.totalCommands),
+                1
+                /* TEXT */
+              ),
+              vue.createElementVNode("text", { class: "stat-label" }, "总指令数")
+            ])
+          ])
+        ])
+      ]),
+      vue.createCommentVNode(" 2. 功能菜单区 "),
+      vue.createElementVNode("view", { class: "menu-section" }, [
+        vue.createElementVNode("text", { class: "section-title" }, "功能菜单"),
+        vue.createElementVNode("view", { class: "menu-list" }, [
+          (vue.openBlock(true), vue.createElementBlock(
+            vue.Fragment,
+            null,
+            vue.renderList($data.menuItems, (menu, index) => {
+              return vue.openBlock(), vue.createElementBlock("view", {
+                class: "menu-item",
+                key: index,
+                onClick: ($event) => $options.handleMenuClick(menu.title)
+              }, [
+                vue.createElementVNode("view", { class: "menu-icon" }, [
+                  vue.createElementVNode("image", {
+                    src: menu.icon,
+                    class: "menu-icon-image",
+                    mode: "aspectFit"
+                  }, null, 8, ["src"])
+                ]),
+                vue.createElementVNode("view", { class: "menu-content" }, [
+                  vue.createElementVNode(
+                    "text",
+                    { class: "menu-title" },
+                    vue.toDisplayString(menu.title),
+                    1
+                    /* TEXT */
+                  ),
+                  vue.createElementVNode(
+                    "text",
+                    { class: "menu-subtitle" },
+                    vue.toDisplayString(menu.subtitle),
+                    1
+                    /* TEXT */
+                  )
+                ]),
+                vue.createElementVNode("view", { class: "menu-arrow" }, [
+                  vue.createElementVNode("text", null, ">")
+                ])
+              ], 8, ["onClick"]);
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
+        ])
+      ]),
+      vue.createCommentVNode(" 3. 使用统计区 "),
+      vue.createElementVNode("view", { class: "statistics-section" }, [
+        vue.createElementVNode("text", { class: "section-title" }, "使用统计"),
+        vue.createElementVNode("view", { class: "stats-grid" }, [
+          (vue.openBlock(true), vue.createElementBlock(
+            vue.Fragment,
+            null,
+            vue.renderList($data.statistics, (stat, index) => {
+              return vue.openBlock(), vue.createElementBlock("view", {
+                class: "stats-card",
+                key: index
+              }, [
+                vue.createElementVNode(
+                  "text",
+                  { class: "stats-number" },
+                  vue.toDisplayString(stat.number),
+                  1
+                  /* TEXT */
+                ),
+                vue.createElementVNode(
+                  "text",
+                  { class: "stats-label" },
+                  vue.toDisplayString(stat.label),
+                  1
+                  /* TEXT */
+                )
+              ]);
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
+        ])
+      ]),
+      vue.createCommentVNode(" 4. 快速操作区 "),
+      vue.createElementVNode("view", { class: "quick-actions-section" }, [
+        vue.createElementVNode("text", { class: "section-title" }, "快速操作"),
+        vue.createElementVNode("view", { class: "actions-grid" }, [
+          (vue.openBlock(true), vue.createElementBlock(
+            vue.Fragment,
+            null,
+            vue.renderList($data.quickActions, (action, index) => {
+              return vue.openBlock(), vue.createElementBlock("view", {
+                class: "action-button",
+                key: index,
+                onClick: ($event) => $options.handleActionClick(action.title)
+              }, [
+                vue.createElementVNode("image", {
+                  src: action.icon,
+                  class: "action-icon",
+                  mode: "aspectFit"
+                }, null, 8, ["src"]),
+                vue.createElementVNode(
+                  "text",
+                  { class: "action-text" },
+                  vue.toDisplayString(action.title),
+                  1
+                  /* TEXT */
+                )
+              ], 8, ["onClick"]);
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
+        ])
+      ])
+    ]);
+  }
+  const PagesUserIndex = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["render", _sfc_render$a], ["__file", "/Users/llx/Documents/HBuilderProjects/haven_demo/pages/user/index.vue"]]);
   const pages = [
     {
       path: "pages/index/index",
       style: {
         navigationBarTitleText: "Haven App"
+      }
+    },
+    {
+      path: "pages/safety/index",
+      style: {
+        navigationBarTitleText: "安全监控"
+      }
+    },
+    {
+      path: "pages/user/index",
+      style: {
+        navigationBarTitleText: "用户管理"
       }
     },
     {
@@ -293,10 +938,37 @@ if (uni.restoreGlobal) {
       "uni-load-more": "/uni_modules/uni-load-more/components/uni-load-more/uni-load-more"
     }
   };
+  const tabBar = {
+    color: "#7A7E83",
+    selectedColor: "#28a745",
+    borderStyle: "black",
+    backgroundColor: "#ffffff",
+    list: [
+      {
+        pagePath: "pages/safety/index",
+        iconPath: "static/icon_warning.png",
+        selectedIconPath: "static/icon_warning.png",
+        text: "安全"
+      },
+      {
+        pagePath: "pages/index/index",
+        iconPath: "static/icon_robo.png",
+        selectedIconPath: "static/icon_robo.png",
+        text: "控制"
+      },
+      {
+        pagePath: "pages/user/index",
+        iconPath: "static/icon_contact.png",
+        selectedIconPath: "static/icon_contact.png",
+        text: "用户"
+      }
+    ]
+  };
   const uniIdRouter = {};
   const e = {
     pages,
     globalStyle,
+    tabBar,
     uniIdRouter
   };
   var define_process_env_UNI_SECURE_NETWORK_CONFIG_default = [];
@@ -3686,7 +4358,7 @@ ${o3}
         vue.createElementVNode("view", { class: "left-panel" }, [
           vue.createElementVNode("image", {
             class: "robot-image",
-            src: _imports_0$1,
+            src: _imports_0$3,
             mode: "aspectFit"
           }),
           vue.createElementVNode("button", {
@@ -4365,33 +5037,141 @@ ${o3}
   const _sfc_main$3 = {
     data() {
       return {
-        points: []
+        points: [],
+        isLoading: false,
+        loadingText: "加载中...",
+        pollingInterval: null
       };
     },
     onShow() {
       this.loadPoints();
     },
+    onUnload() {
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+      }
+    },
     methods: {
       goBack() {
         uni.navigateBack();
       },
-      loadPoints() {
-        const storedPoints = uni.getStorageSync("points");
-        if (storedPoints) {
-          this.points = storedPoints;
+      // 核心逻辑：提交任务并等待结果（参考点位设置页面）
+      async executeCommand(task, params = {}, loadingText = "处理中...") {
+        this.isLoading = true;
+        this.loadingText = loadingText;
+        if (this.pollingInterval) {
+          clearInterval(this.pollingInterval);
+        }
+        try {
+          const postRes = await tr.callFunction({
+            name: "postCommand",
+            data: { task, params }
+          });
+          if (!postRes.result.success) {
+            throw new Error(postRes.result.errMsg || "提交指令失败");
+          }
+          const commandId = postRes.result.commandId;
+          return new Promise((resolve, reject) => {
+            const timeoutTimer = setTimeout(() => {
+              clearInterval(this.pollingInterval);
+              this.isLoading = false;
+              reject(new Error("请求超时，请检查网络或机器人客户端状态"));
+            }, 2e4);
+            this.pollingInterval = setInterval(async () => {
+              try {
+                const resultRes = await tr.callFunction({
+                  name: "getCommandResult",
+                  data: {
+                    commandId
+                  }
+                });
+                if (resultRes.result.success && resultRes.result.command) {
+                  const command = resultRes.result.command;
+                  if (command.status === "completed") {
+                    clearTimeout(timeoutTimer);
+                    clearInterval(this.pollingInterval);
+                    this.isLoading = false;
+                    resolve(command.result);
+                  } else if (command.status === "failed") {
+                    clearTimeout(timeoutTimer);
+                    clearInterval(this.pollingInterval);
+                    this.isLoading = false;
+                    reject(new Error(command.error_message || "任务执行失败"));
+                  }
+                } else if (!resultRes.result.success) {
+                  throw new Error(resultRes.result.errMsg || "查询结果失败");
+                }
+              } catch (pollError) {
+                clearTimeout(timeoutTimer);
+                clearInterval(this.pollingInterval);
+                this.isLoading = false;
+                reject(pollError);
+              }
+            }, 2e3);
+          });
+        } catch (error) {
+          this.isLoading = false;
+          uni.showToast({ title: error.message, icon: "none" });
+          return Promise.reject(error);
         }
       },
-      sendDelivery(index) {
+      // 从云端获取点位列表
+      async loadPoints() {
+        try {
+          const result = await this.executeCommand("get_marker_list", {}, "正在获取点位列表...");
+          this.points = result ? Object.keys(result).map((key) => ({
+            name: key,
+            location: key,
+            // 使用点位名称作为位置显示
+            ...result[key]
+          })) : [];
+          if (this.points.length === 0) {
+            uni.showToast({ title: "暂无点位，请先在点位设置中添加", icon: "none" });
+          }
+        } catch (error) {
+          formatAppLog("error", "at pages/delivery/index.vue:153", "获取点位列表失败:", error);
+          const storedPoints = uni.getStorageSync("points");
+          if (storedPoints) {
+            this.points = storedPoints;
+          } else {
+            uni.showToast({ title: `获取点位失败: ${error.message}`, icon: "none" });
+          }
+        }
+      },
+      async sendDelivery(index) {
         const point = this.points[index];
-        uni.showToast({
-          title: `配送指令已发送至 ${point.name}`,
-          icon: "none"
-        });
+        try {
+          await this.executeCommand("move_to_point", { marker_name: point.name }, `正在移动至 ${point.name}...`);
+          uni.showToast({
+            title: `已成功配送至 ${point.name}`,
+            icon: "success"
+          });
+        } catch (error) {
+          formatAppLog("error", "at pages/delivery/index.vue:174", "配送失败:", error);
+          uni.showToast({
+            title: `配送失败: ${error.message}`,
+            icon: "none"
+          });
+        }
       }
     }
   };
   function _sfc_render$2(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "page-container" }, [
+      vue.createCommentVNode(" 全屏加载动画 "),
+      $data.isLoading ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "loading-overlay"
+      }, [
+        vue.createElementVNode("view", { class: "loading-spinner" }),
+        vue.createElementVNode(
+          "text",
+          { class: "loading-text" },
+          vue.toDisplayString($data.loadingText),
+          1
+          /* TEXT */
+        )
+      ])) : vue.createCommentVNode("v-if", true),
       vue.createCommentVNode(" 1. 自定义导航栏 "),
       vue.createElementVNode("view", { class: "custom-nav-bar" }, [
         vue.createElementVNode("text", {
@@ -4408,7 +5188,15 @@ ${o3}
       vue.createCommentVNode(" 3. 目的地设置 "),
       vue.createElementVNode("view", { class: "point-management-section" }, [
         vue.createElementVNode("text", { class: "section-title" }, "目的地设置"),
-        vue.createElementVNode("view", { class: "point-grid" }, [
+        $data.points.length === 0 && !$data.isLoading ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 0,
+          class: "empty-prompt"
+        }, [
+          vue.createElementVNode("text", null, "暂无点位信息，请先在点位设置中添加点位")
+        ])) : (vue.openBlock(), vue.createElementBlock("view", {
+          key: 1,
+          class: "point-grid"
+        }, [
           (vue.openBlock(true), vue.createElementBlock(
             vue.Fragment,
             null,
@@ -4447,7 +5235,7 @@ ${o3}
             128
             /* KEYED_FRAGMENT */
           ))
-        ])
+        ]))
       ])
     ]);
   }
@@ -4614,15 +5402,106 @@ ${o3}
     data() {
       return {
         availablePoints: [],
-        selectedPoints: []
+        selectedPoints: [],
+        isLoading: false,
+        loadingText: "加载中...",
+        pollingInterval: null
       };
     },
     onLoad() {
-      this.availablePoints = uni.getStorageSync("points") || [];
+      this.loadAvailablePoints();
+    },
+    onUnload() {
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+      }
     },
     methods: {
       goBack() {
         uni.navigateBack();
+      },
+      // 核心逻辑：提交任务并等待结果（参考点位设置页面）
+      async executeCommand(task, params = {}, loadingText = "处理中...") {
+        this.isLoading = true;
+        this.loadingText = loadingText;
+        if (this.pollingInterval) {
+          clearInterval(this.pollingInterval);
+        }
+        try {
+          const postRes = await tr.callFunction({
+            name: "postCommand",
+            data: { task, params }
+          });
+          if (!postRes.result.success) {
+            throw new Error(postRes.result.errMsg || "提交指令失败");
+          }
+          const commandId = postRes.result.commandId;
+          return new Promise((resolve, reject) => {
+            const timeoutTimer = setTimeout(() => {
+              clearInterval(this.pollingInterval);
+              this.isLoading = false;
+              reject(new Error("请求超时，请检查网络或机器人客户端状态"));
+            }, 2e4);
+            this.pollingInterval = setInterval(async () => {
+              try {
+                const resultRes = await tr.callFunction({
+                  name: "getCommandResult",
+                  data: {
+                    commandId
+                  }
+                });
+                if (resultRes.result.success && resultRes.result.command) {
+                  const command = resultRes.result.command;
+                  if (command.status === "completed") {
+                    clearTimeout(timeoutTimer);
+                    clearInterval(this.pollingInterval);
+                    this.isLoading = false;
+                    resolve(command.result);
+                  } else if (command.status === "failed") {
+                    clearTimeout(timeoutTimer);
+                    clearInterval(this.pollingInterval);
+                    this.isLoading = false;
+                    reject(new Error(command.error_message || "任务执行失败"));
+                  }
+                } else if (!resultRes.result.success) {
+                  throw new Error(resultRes.result.errMsg || "查询结果失败");
+                }
+              } catch (pollError) {
+                clearTimeout(timeoutTimer);
+                clearInterval(this.pollingInterval);
+                this.isLoading = false;
+                reject(pollError);
+              }
+            }, 2e3);
+          });
+        } catch (error) {
+          this.isLoading = false;
+          uni.showToast({ title: error.message, icon: "none" });
+          return Promise.reject(error);
+        }
+      },
+      // 从云端获取可用点位
+      async loadAvailablePoints() {
+        try {
+          const result = await this.executeCommand("get_marker_list", {}, "正在获取点位列表...");
+          this.availablePoints = result ? Object.keys(result).map((key) => ({
+            name: key,
+            location: key,
+            // 使用点位名称作为位置显示
+            ...result[key]
+          })) : [];
+          if (this.availablePoints.length === 0) {
+            uni.showToast({ title: "暂无点位，请先在点位设置中添加", icon: "none" });
+          }
+        } catch (error) {
+          formatAppLog("error", "at pages/patrol/add.vue:172", "获取点位列表失败:", error);
+          const storedPoints = uni.getStorageSync("points");
+          if (storedPoints) {
+            this.availablePoints = storedPoints;
+          } else {
+            uni.showToast({ title: `获取点位失败: ${error.message}`, icon: "none" });
+          }
+        }
       },
       addPointToRoute(index) {
         const point = this.availablePoints.splice(index, 1)[0];
@@ -4679,6 +5558,20 @@ ${o3}
   };
   function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "page-container" }, [
+      vue.createCommentVNode(" 全屏加载动画 "),
+      $data.isLoading ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "loading-overlay"
+      }, [
+        vue.createElementVNode("view", { class: "loading-spinner" }),
+        vue.createElementVNode(
+          "text",
+          { class: "loading-text" },
+          vue.toDisplayString($data.loadingText),
+          1
+          /* TEXT */
+        )
+      ])) : vue.createCommentVNode("v-if", true),
       vue.createCommentVNode(" 1. 自定义导航栏 "),
       vue.createElementVNode("view", { class: "custom-nav-bar" }, [
         vue.createElementVNode("text", {
@@ -4742,7 +5635,15 @@ ${o3}
       vue.createCommentVNode(" 3. 点位选择区域 "),
       vue.createElementVNode("view", { class: "point-selection-section" }, [
         vue.createElementVNode("text", { class: "section-title" }, "点位选择"),
-        vue.createElementVNode("view", { class: "available-points-grid" }, [
+        $data.availablePoints.length === 0 && !$data.isLoading ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 0,
+          class: "empty-points-prompt"
+        }, [
+          vue.createElementVNode("text", null, "暂无可用点位，请先在点位设置中添加点位")
+        ])) : (vue.openBlock(), vue.createElementBlock("view", {
+          key: 1,
+          class: "available-points-grid"
+        }, [
           (vue.openBlock(true), vue.createElementBlock(
             vue.Fragment,
             null,
@@ -4781,7 +5682,7 @@ ${o3}
             128
             /* KEYED_FRAGMENT */
           ))
-        ])
+        ]))
       ]),
       vue.createCommentVNode(" 4. 确认按钮 "),
       vue.createElementVNode("view", { class: "confirm-button-container" }, [
@@ -4795,6 +5696,8 @@ ${o3}
   }
   const PagesPatrolAdd = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__file", "/Users/llx/Documents/HBuilderProjects/haven_demo/pages/patrol/add.vue"]]);
   __definePage("pages/index/index", PagesIndexIndex);
+  __definePage("pages/safety/index", PagesSafetyIndex);
+  __definePage("pages/user/index", PagesUserIndex);
   __definePage("pages/chat/chat", PagesChatChat);
   __definePage("pages/calculator/calculator", PagesCalculatorCalculator);
   __definePage("pages/marker/index", PagesMarkerIndex);

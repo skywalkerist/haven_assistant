@@ -37,19 +37,6 @@
 			<image src="/static/icon_trumpet.png" class="voice-icon"></image>
 			<text class="voice-text">老吾老，以及人之老；幼吾幼，以及人之幼。</text>
 		</view>
-
-		<!-- 4. 底部导航栏 -->
-		<view class="bottom-nav-bar">
-			<view class="nav-item">
-				<image src="/static/icon_warning.png" class="nav-icon-image"></image>
-			</view>
-			<view class="nav-item active">
-				<image src="/static/icon_robo.png" class="nav-icon-image"></image>
-			</view>
-			<view class="nav-item">
-				<image src="/static/icon_contact.png" class="nav-icon-image"></image>
-			</view>
-		</view>
 	</view>
 </template>
 
@@ -130,7 +117,7 @@
 		background-repeat: no-repeat;
 		background-position: center;
 		min-height: 100vh;
-		padding-bottom: 160rpx; /* 增加padding为语音条和导航栏留出空间 */
+		padding-bottom: 30rpx; /* 减少padding，原生TabBar会自动处理 */
 	}
 
 	/* 顶部状态区 */

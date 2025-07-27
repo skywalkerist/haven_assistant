@@ -7,6 +7,18 @@
 			}
 		},
 		{
+			"path": "pages/safety/index",
+			"style": {
+				"navigationBarTitleText": "安全监控"
+			}
+		},
+		{
+			"path": "pages/user/index",
+			"style": {
+				"navigationBarTitleText": "用户管理"
+			}
+		},
+		{
 			"path": "pages/chat/chat",
 			"style": {
 				"navigationBarTitleText": "聊天"
@@ -75,6 +87,32 @@
 		"usingComponents": {
 			"uni-load-more": "/uni_modules/uni-load-more/components/uni-load-more/uni-load-more"
 		}
+	},
+	"tabBar": {
+		"color": "#7A7E83",
+		"selectedColor": "#28a745",
+		"borderStyle": "black",
+		"backgroundColor": "#ffffff",
+		"list": [
+			{
+				"pagePath": "pages/safety/index",
+				"iconPath": "static/icon_warning.png",
+				"selectedIconPath": "static/icon_warning.png",
+				"text": "安全"
+			},
+			{
+				"pagePath": "pages/index/index",
+				"iconPath": "static/icon_robo.png",
+				"selectedIconPath": "static/icon_robo.png",
+				"text": "控制"
+			},
+			{
+				"pagePath": "pages/user/index",
+				"iconPath": "static/icon_contact.png",
+				"selectedIconPath": "static/icon_contact.png",
+				"text": "用户"
+			}
+		]
 	},
 	"uniIdRouter": {}
 }
