@@ -6,26 +6,37 @@
 			<text class="loading-text">{{ loadingText }}</text>
 		</view>
 
-		<!-- 主内容区 -->
-		<view class="main-content">
-			<view class="left-panel">
-				<image class="robot-image" src="/static/robot.png" mode="aspectFit"></image>
-				<button class="action-button add-button" @click="openAddModal">添加点位</button>
+		<!-- 1. 自定义导航栏 -->
+		<view class="custom-nav-bar">
+			<text class="back-arrow" @click="goBack">&lt;</text>
+			<text class="nav-title">点位设置</text>
+		</view>
+
+		<!-- 2. 当前区域 -->
+		<view class="current-area-section">
+			<text class="area-label">当前区域</text>
+			<text class="area-name">老年活动室</text>
+			<button class="set-point-button" @click="openAddModal">设为新点位</button>
+		</view>
+
+		<!-- 3. 点位管理 -->
+		<view class="point-management-section">
+			<view class="section-header">
+				<text class="section-title">点位管理</text>
+				<button class="refresh-button" @click="fetchMarkerList">刷新</button>
 			</view>
-			<view class="right-panel">
-				<view class="marker-list-header">
-					<text class="list-title">点位列表 ({{ markers.length }})</text>
-					<button class="action-button refresh-button" @click="fetchMarkerList">刷新</button>
+			<view v-if="markers.length === 0 && !isLoading" class="empty-list">
+				<text>暂无点位信息</text>
+			</view>
+			<view v-else class="point-grid">
+				<view class="point-card" v-for="(marker, index) in markers" :key="index" @click="renameMarker(marker)">
+					<image src="/static/icon_positon.png" class="point-icon" mode="aspectFit"></image>
+					<view class="point-info">
+						<text class="point-name">{{ marker.name }}</text>
+						<text class="point-location">{{ marker.name }}</text>
+						<button class="delete-button" @click.stop="openDeleteModal(marker)">删除</button>
+					</view>
 				</view>
-				<scroll-view scroll-y class="marker-list">
-					<view v-if="markers.length === 0 && !isLoading" class="empty-list">
-						<text>暂无点位信息</text>
-					</view>
-					<view v-for="(marker, index) in markers" :key="index" class="marker-item">
-						<text class="marker-name">{{ marker.name }}</text>
-						<button class="action-button delete-button" @click="openDeleteModal(marker)">删除</button>
-					</view>
-				</scroll-view>
 			</view>
 		</view>
 
@@ -71,6 +82,10 @@
 			}
 		},
 		methods: {
+			goBack() {
+				uni.navigateBack();
+			},
+			
 			// 核心逻辑：提交任务并等待结果
 			async executeCommand(task, params = {}, loadingText = '处理中...') {
 				this.isLoading = true;
@@ -168,6 +183,15 @@
 				this.isModalVisible = false;
 			},
 
+			// 重命名点位（保留原有功能但用移动端交互）
+			renameMarker(marker) {
+				uni.showModal({
+					title: '点位详情',
+					content: `点位名称: ${marker.name}`,
+					showCancel: false
+				});
+			},
+
 			// 弹窗确认操作
 			async handleConfirm() {
 				const modalType = this.modal.type;
@@ -201,11 +225,19 @@
 </script>
 
 <style>
+	page {
+		height: 100%;
+	}
+	
 	.page-container {
 		display: flex;
 		flex-direction: column;
+		background-image: url('/static/background.png');
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position: center;
 		height: 100vh;
-		background-color: #f4f7fa;
+		color: #333;
 	}
 
 	.loading-overlay {
@@ -242,97 +274,139 @@
 		100% { transform: rotate(360deg); }
 	}
 
-	.main-content {
+	/* 自定义导航栏 */
+	.custom-nav-bar {
+		position: relative;
 		display: flex;
-		flex: 1;
-		padding: 20px;
+		justify-content: center;
+		align-items: center;
+		height: 90rpx;
+		padding-top: var(--status-bar-height); /* 适配状态栏 */
+	}
+	.back-arrow {
+		position: absolute;
+		left: 40rpx;
+		top: 50%;
+		transform: translateY(-50%);
+		font-size: 48rpx;
+		font-weight: bold;
+		color: #000000;
+	}
+	.nav-title {
+		font-size: 36rpx;
+		font-weight: bold;
+		color: #000000;
 	}
 
-	.left-panel {
-		flex: 1;
+	/* 当前区域 */
+	.current-area-section {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		padding-right: 20px;
+		padding: 40rpx;
+		text-align: center;
+	}
+	.area-label {
+		font-size: 30rpx;
+		color: #FFFFFF;
+		opacity: 0.9;
+	}
+	.area-name {
+		font-size: 60rpx;
+		font-weight: bold;
+		color: #FFFFFF;
+		margin-top: 10rpx;
+	}
+	.set-point-button {
+		margin-top: 30rpx;
+		background-color: #28a745;
+		color: #FFFFFF;
+		border-radius: 50rpx;
+		padding: 15rpx 60rpx;
+		font-size: 32rpx;
 	}
 
-	.robot-image {
-		width: 150px;
-		height: 150px;
-		margin-bottom: 30px;
-	}
-
-	.right-panel {
+	/* 点位管理 */
+	.point-management-section {
 		flex: 1;
-		display: flex;
-		flex-direction: column;
-		background-color: white;
-		border-radius: 10px;
-		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-		overflow: hidden;
+		background-color: #F4F4F4;
+		border-top-left-radius: 40rpx;
+		border-top-right-radius: 40rpx;
+		padding: 40rpx;
+		padding-bottom: calc(40rpx + var(--safe-area-inset-bottom)); /* 适配底部安全区 */
+		overflow-y: auto; /* 内容溢出时可滚动 */
+		min-height: 0; /* 解决flex布局在某些情况下的溢出问题 */
 	}
-
-	.marker-list-header {
-		padding: 15px;
-		border-bottom: 1px solid #eee;
+	.section-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		margin-bottom: 30rpx;
 	}
-
-	.list-title {
-		font-size: 18px;
+	.section-title {
+		font-size: 36rpx;
 		font-weight: bold;
-		color: #333;
 	}
-
-	.marker-list {
-		flex: 1;
+	.refresh-button {
+		background-color: #4caf50;
+		color: #FFFFFF;
+		font-size: 24rpx;
+		padding: 8rpx 20rpx;
+		border-radius: 30rpx;
+		border: none;
 	}
-
 	.empty-list {
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		height: 100%;
+		height: 200rpx;
 		color: #999;
+		text-align: center;
 	}
-
-	.marker-item {
+	.point-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 30rpx;
+	}
+	.point-card {
+		background-color: #FFFFFF;
+		border-radius: 20rpx;
+		padding: 30rpx;
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
-		padding: 15px;
-		border-bottom: 1px solid #f0f0f0;
 	}
-
-	.marker-name {
-		font-size: 16px;
+	.point-icon {
+		width: 80rpx;
+		height: 80rpx;
+		margin-right: 20rpx;
 	}
-
-	.action-button {
-		font-size: 14px;
-		padding: 5px 15px;
-		border-radius: 20px;
-		color: white;
-		margin: 0;
+	.point-info {
+		display: flex;
+		flex-direction: column;
 	}
-
-	.add-button {
-		background-color: #2979ff;
+	.point-name {
+		font-size: 32rpx;
+		font-weight: bold;
 	}
-	
-	.refresh-button {
-		background-color: #4caf50;
-		font-size: 12px;
-		padding: 4px 12px;
+	.point-location {
+		font-size: 24rpx;
+		color: #999;
+		margin-top: 5rpx;
 	}
-
 	.delete-button {
-		background-color: #ff5252;
-		font-size: 12px;
-		padding: 4px 12px;
+		margin-top: 10rpx;
+		background-color: #FF4D4F;
+		color: #FFFFFF;
+		font-size: 24rpx;
+		padding: 5rpx 20rpx;
+		border-radius: 30rpx;
+		line-height: 1.5;
+		/* 重置按钮默认样式 */
+		border: none;
+		text-align: center;
+		display: inline-block;
+		width: auto;
+		height: auto;
 	}
 
 	.modal-overlay {
@@ -367,8 +441,11 @@
 	.modal-input {
 		border: 1px solid #ddd;
 		border-radius: 5px;
-		padding: 10px;
+		padding: 15px;
 		width: 100%;
+		height: 50px;
+		line-height: 20px;
+		font-size: 16px;
 		box-sizing: border-box;
 		margin-bottom: 20px;
 	}

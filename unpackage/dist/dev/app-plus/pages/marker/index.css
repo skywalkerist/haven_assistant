@@ -1,9 +1,16 @@
 
+body {
+		height: 100%;
+}
 .page-container {
 		display: flex;
 		flex-direction: column;
+		background-image: url('../../static/background.png');
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position: center;
 		height: 100vh;
-		background-color: #f4f7fa;
+		color: #333;
 }
 .loading-overlay {
 		position: fixed;
@@ -37,84 +44,140 @@
 100% { transform: rotate(360deg);
 }
 }
-.main-content {
+
+	/* 自定义导航栏 */
+.custom-nav-bar {
+		position: relative;
 		display: flex;
-		flex: 1;
-		padding: 20px;
+		justify-content: center;
+		align-items: center;
+		height: 2.8125rem;
+		padding-top: var(--status-bar-height); /* 适配状态栏 */
 }
-.left-panel {
-		flex: 1;
+.back-arrow {
+		position: absolute;
+		left: 1.25rem;
+		top: 50%;
+		transform: translateY(-50%);
+		font-size: 1.5rem;
+		font-weight: bold;
+		color: #000000;
+}
+.nav-title {
+		font-size: 1.125rem;
+		font-weight: bold;
+		color: #000000;
+}
+
+	/* 当前区域 */
+.current-area-section {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		padding-right: 20px;
+		padding: 1.25rem;
+		text-align: center;
 }
-.robot-image {
-		width: 150px;
-		height: 150px;
-		margin-bottom: 30px;
+.area-label {
+		font-size: 0.9375rem;
+		color: #FFFFFF;
+		opacity: 0.9;
 }
-.right-panel {
+.area-name {
+		font-size: 1.875rem;
+		font-weight: bold;
+		color: #FFFFFF;
+		margin-top: 0.3125rem;
+}
+.set-point-button {
+		margin-top: 0.9375rem;
+		background-color: #28a745;
+		color: #FFFFFF;
+		border-radius: 1.5625rem;
+		padding: 0.46875rem 1.875rem;
+		font-size: 1rem;
+}
+
+	/* 点位管理 */
+.point-management-section {
 		flex: 1;
-		display: flex;
-		flex-direction: column;
-		background-color: white;
-		border-radius: 10px;
-		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-		overflow: hidden;
+		background-color: #F4F4F4;
+		border-top-left-radius: 1.25rem;
+		border-top-right-radius: 1.25rem;
+		padding: 1.25rem;
+		padding-bottom: calc(1.25rem + var(--safe-area-inset-bottom)); /* 适配底部安全区 */
+		overflow-y: auto; /* 内容溢出时可滚动 */
+		min-height: 0; /* 解决flex布局在某些情况下的溢出问题 */
 }
-.marker-list-header {
-		padding: 15px;
-		border-bottom: 1px solid #eee;
+.section-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		margin-bottom: 0.9375rem;
 }
-.list-title {
-		font-size: 18px;
+.section-title {
+		font-size: 1.125rem;
 		font-weight: bold;
-		color: #333;
 }
-.marker-list {
-		flex: 1;
+.refresh-button {
+		background-color: #4caf50;
+		color: #FFFFFF;
+		font-size: 0.75rem;
+		padding: 0.25rem 0.625rem;
+		border-radius: 0.9375rem;
+		border: none;
 }
 .empty-list {
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		height: 100%;
+		height: 6.25rem;
 		color: #999;
+		text-align: center;
 }
-.marker-item {
+.point-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.9375rem;
+}
+.point-card {
+		background-color: #FFFFFF;
+		border-radius: 0.625rem;
+		padding: 0.9375rem;
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
-		padding: 15px;
-		border-bottom: 1px solid #f0f0f0;
 }
-.marker-name {
-		font-size: 16px;
+.point-icon {
+		width: 2.5rem;
+		height: 2.5rem;
+		margin-right: 0.625rem;
 }
-.action-button {
-		font-size: 14px;
-		padding: 5px 15px;
-		border-radius: 20px;
-		color: white;
-		margin: 0;
+.point-info {
+		display: flex;
+		flex-direction: column;
 }
-.add-button {
-		background-color: #2979ff;
+.point-name {
+		font-size: 1rem;
+		font-weight: bold;
 }
-.refresh-button {
-		background-color: #4caf50;
-		font-size: 12px;
-		padding: 4px 12px;
+.point-location {
+		font-size: 0.75rem;
+		color: #999;
+		margin-top: 0.15625rem;
 }
 .delete-button {
-		background-color: #ff5252;
-		font-size: 12px;
-		padding: 4px 12px;
+		margin-top: 0.3125rem;
+		background-color: #FF4D4F;
+		color: #FFFFFF;
+		font-size: 0.75rem;
+		padding: 0.15625rem 0.625rem;
+		border-radius: 0.9375rem;
+		line-height: 1.5;
+		/* 重置按钮默认样式 */
+		border: none;
+		text-align: center;
+		display: inline-block;
+		width: auto;
+		height: auto;
 }
 .modal-overlay {
 		position: fixed;
@@ -145,8 +208,11 @@
 .modal-input {
 		border: 1px solid #ddd;
 		border-radius: 5px;
-		padding: 10px;
+		padding: 15px;
 		width: 100%;
+		height: 50px;
+		line-height: 20px;
+		font-size: 16px;
 		box-sizing: border-box;
 		margin-bottom: 20px;
 }

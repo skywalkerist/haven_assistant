@@ -4200,6 +4200,7 @@ ${o3}
     ]);
   }
   const PagesCalculatorCalculator = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["render", _sfc_render$8], ["__file", "/Users/llx/Documents/HBuilderProjects/haven_demo/pages/calculator/calculator.vue"]]);
+  const _imports_0 = "/static/icon_positon.png";
   const _sfc_main$8 = {
     data() {
       return {
@@ -4226,6 +4227,9 @@ ${o3}
       }
     },
     methods: {
+      goBack() {
+        uni.navigateBack();
+      },
       // 核心逻辑：提交任务并等待结果
       async executeCommand(task, params = {}, loadingText = "处理中...") {
         this.isLoading = true;
@@ -4308,6 +4312,14 @@ ${o3}
       closeModal() {
         this.isModalVisible = false;
       },
+      // 重命名点位（保留原有功能但用移动端交互）
+      renameMarker(marker) {
+        uni.showModal({
+          title: "点位详情",
+          content: `点位名称: ${marker.name}`,
+          showCancel: false
+        });
+      },
       // 弹窗确认操作
       async handleConfirm() {
         const modalType = this.modal.type;
@@ -4353,75 +4365,87 @@ ${o3}
           /* TEXT */
         )
       ])) : vue.createCommentVNode("v-if", true),
-      vue.createCommentVNode(" 主内容区 "),
-      vue.createElementVNode("view", { class: "main-content" }, [
-        vue.createElementVNode("view", { class: "left-panel" }, [
-          vue.createElementVNode("image", {
-            class: "robot-image",
-            src: _imports_0$3,
-            mode: "aspectFit"
-          }),
+      vue.createCommentVNode(" 1. 自定义导航栏 "),
+      vue.createElementVNode("view", { class: "custom-nav-bar" }, [
+        vue.createElementVNode("text", {
+          class: "back-arrow",
+          onClick: _cache[0] || (_cache[0] = (...args) => $options.goBack && $options.goBack(...args))
+        }, "<"),
+        vue.createElementVNode("text", { class: "nav-title" }, "点位设置")
+      ]),
+      vue.createCommentVNode(" 2. 当前区域 "),
+      vue.createElementVNode("view", { class: "current-area-section" }, [
+        vue.createElementVNode("text", { class: "area-label" }, "当前区域"),
+        vue.createElementVNode("text", { class: "area-name" }, "老年活动室"),
+        vue.createElementVNode("button", {
+          class: "set-point-button",
+          onClick: _cache[1] || (_cache[1] = (...args) => $options.openAddModal && $options.openAddModal(...args))
+        }, "设为新点位")
+      ]),
+      vue.createCommentVNode(" 3. 点位管理 "),
+      vue.createElementVNode("view", { class: "point-management-section" }, [
+        vue.createElementVNode("view", { class: "section-header" }, [
+          vue.createElementVNode("text", { class: "section-title" }, "点位管理"),
           vue.createElementVNode("button", {
-            class: "action-button add-button",
-            onClick: _cache[0] || (_cache[0] = (...args) => $options.openAddModal && $options.openAddModal(...args))
-          }, "添加点位")
+            class: "refresh-button",
+            onClick: _cache[2] || (_cache[2] = (...args) => $options.fetchMarkerList && $options.fetchMarkerList(...args))
+          }, "刷新")
         ]),
-        vue.createElementVNode("view", { class: "right-panel" }, [
-          vue.createElementVNode("view", { class: "marker-list-header" }, [
-            vue.createElementVNode(
-              "text",
-              { class: "list-title" },
-              "点位列表 (" + vue.toDisplayString($data.markers.length) + ")",
-              1
-              /* TEXT */
-            ),
-            vue.createElementVNode("button", {
-              class: "action-button refresh-button",
-              onClick: _cache[1] || (_cache[1] = (...args) => $options.fetchMarkerList && $options.fetchMarkerList(...args))
-            }, "刷新")
-          ]),
-          vue.createElementVNode("scroll-view", {
-            "scroll-y": "",
-            class: "marker-list"
-          }, [
-            $data.markers.length === 0 && !$data.isLoading ? (vue.openBlock(), vue.createElementBlock("view", {
-              key: 0,
-              class: "empty-list"
-            }, [
-              vue.createElementVNode("text", null, "暂无点位信息")
-            ])) : vue.createCommentVNode("v-if", true),
-            (vue.openBlock(true), vue.createElementBlock(
-              vue.Fragment,
-              null,
-              vue.renderList($data.markers, (marker, index) => {
-                return vue.openBlock(), vue.createElementBlock("view", {
-                  key: index,
-                  class: "marker-item"
-                }, [
+        $data.markers.length === 0 && !$data.isLoading ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 0,
+          class: "empty-list"
+        }, [
+          vue.createElementVNode("text", null, "暂无点位信息")
+        ])) : (vue.openBlock(), vue.createElementBlock("view", {
+          key: 1,
+          class: "point-grid"
+        }, [
+          (vue.openBlock(true), vue.createElementBlock(
+            vue.Fragment,
+            null,
+            vue.renderList($data.markers, (marker, index) => {
+              return vue.openBlock(), vue.createElementBlock("view", {
+                class: "point-card",
+                key: index,
+                onClick: ($event) => $options.renameMarker(marker)
+              }, [
+                vue.createElementVNode("image", {
+                  src: _imports_0,
+                  class: "point-icon",
+                  mode: "aspectFit"
+                }),
+                vue.createElementVNode("view", { class: "point-info" }, [
                   vue.createElementVNode(
                     "text",
-                    { class: "marker-name" },
+                    { class: "point-name" },
+                    vue.toDisplayString(marker.name),
+                    1
+                    /* TEXT */
+                  ),
+                  vue.createElementVNode(
+                    "text",
+                    { class: "point-location" },
                     vue.toDisplayString(marker.name),
                     1
                     /* TEXT */
                   ),
                   vue.createElementVNode("button", {
-                    class: "action-button delete-button",
-                    onClick: ($event) => $options.openDeleteModal(marker)
+                    class: "delete-button",
+                    onClick: vue.withModifiers(($event) => $options.openDeleteModal(marker), ["stop"])
                   }, "删除", 8, ["onClick"])
-                ]);
-              }),
-              128
-              /* KEYED_FRAGMENT */
-            ))
-          ])
-        ])
+                ])
+              ], 8, ["onClick"]);
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
+        ]))
       ]),
       vue.createCommentVNode(" 添加/删除点位弹窗 "),
       $data.isModalVisible ? (vue.openBlock(), vue.createElementBlock("view", {
         key: 1,
         class: "modal-overlay",
-        onClick: _cache[5] || (_cache[5] = vue.withModifiers((...args) => $options.closeModal && $options.closeModal(...args), ["self"]))
+        onClick: _cache[6] || (_cache[6] = vue.withModifiers((...args) => $options.closeModal && $options.closeModal(...args), ["self"]))
       }, [
         vue.createElementVNode("view", { class: "modal-content" }, [
           vue.createElementVNode(
@@ -4435,7 +4459,7 @@ ${o3}
             "input",
             {
               key: 0,
-              "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $data.modal.inputText = $event),
+              "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => $data.modal.inputText = $event),
               class: "modal-input",
               placeholder: "请输入点位名称"
             },
@@ -4458,11 +4482,11 @@ ${o3}
           vue.createElementVNode("view", { class: "modal-actions" }, [
             vue.createElementVNode("button", {
               class: "modal-button cancel-button",
-              onClick: _cache[3] || (_cache[3] = (...args) => $options.closeModal && $options.closeModal(...args))
+              onClick: _cache[4] || (_cache[4] = (...args) => $options.closeModal && $options.closeModal(...args))
             }, "取消"),
             vue.createElementVNode("button", {
               class: "modal-button confirm-button",
-              onClick: _cache[4] || (_cache[4] = (...args) => $options.handleConfirm && $options.handleConfirm(...args))
+              onClick: _cache[5] || (_cache[5] = (...args) => $options.handleConfirm && $options.handleConfirm(...args))
             }, "确定")
           ])
         ])
@@ -5033,7 +5057,6 @@ ${o3}
     ]);
   }
   const PagesFaceEntryIndex = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["render", _sfc_render$3], ["__file", "/Users/llx/Documents/HBuilderProjects/haven_demo/pages/face_entry/index.vue"]]);
-  const _imports_0 = "/static/icon_positon.png";
   const _sfc_main$3 = {
     data() {
       return {
@@ -5243,7 +5266,10 @@ ${o3}
   const _sfc_main$2 = {
     data() {
       return {
-        routes: []
+        routes: [],
+        isLoading: false,
+        loadingText: "加载中...",
+        pollingInterval: null
       };
     },
     onLoad() {
@@ -5261,36 +5287,116 @@ ${o3}
     },
     onUnload() {
       uni.$off("routes-updated", this.updateRoutesHandler);
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+      }
     },
     methods: {
       goBack() {
         uni.navigateBack();
       },
-      loadRoutes() {
-        formatAppLog("log", "at pages/patrol/index.vue:64", "--- [INDEX.VUE] LOAD ROUTES TRIGGERED ---");
-        const storedRoutes = uni.getStorageSync("patrol_routes");
-        formatAppLog("log", "at pages/patrol/index.vue:66", "--- [INDEX.VUE] LOADED FROM STORAGE ---");
-        formatAppLog("log", "at pages/patrol/index.vue:67", JSON.stringify(storedRoutes, null, 2));
-        if (storedRoutes && storedRoutes.length > 0) {
-          this.routes = storedRoutes;
-        } else {
-          this.routes = [{
-            name: "路线1",
-            description: "住宿区专线",
-            points: []
-          }];
-          this.saveRoutes();
+      // 核心逻辑：提交任务并等待结果
+      async executeCommand(task, params = {}, loadingText = "处理中...") {
+        this.isLoading = true;
+        this.loadingText = loadingText;
+        if (this.pollingInterval) {
+          clearInterval(this.pollingInterval);
+        }
+        try {
+          const postRes = await tr.callFunction({
+            name: "postCommand",
+            data: { task, params }
+          });
+          if (!postRes.result.success) {
+            throw new Error(postRes.result.errMsg || "提交指令失败");
+          }
+          const commandId = postRes.result.commandId;
+          return new Promise((resolve, reject) => {
+            const timeoutTimer = setTimeout(() => {
+              clearInterval(this.pollingInterval);
+              this.isLoading = false;
+              reject(new Error("请求超时，请检查网络或机器人客户端状态"));
+            }, 2e4);
+            this.pollingInterval = setInterval(async () => {
+              try {
+                const resultRes = await tr.callFunction({
+                  name: "getCommandResult",
+                  data: {
+                    commandId
+                  }
+                });
+                if (resultRes.result.success && resultRes.result.command) {
+                  const command = resultRes.result.command;
+                  if (command.status === "completed") {
+                    clearTimeout(timeoutTimer);
+                    clearInterval(this.pollingInterval);
+                    this.isLoading = false;
+                    resolve(command.result);
+                  } else if (command.status === "failed") {
+                    clearTimeout(timeoutTimer);
+                    clearInterval(this.pollingInterval);
+                    this.isLoading = false;
+                    reject(new Error(command.error_message || "任务执行失败"));
+                  }
+                } else if (!resultRes.result.success) {
+                  throw new Error(resultRes.result.errMsg || "查询结果失败");
+                }
+              } catch (pollError) {
+                clearTimeout(timeoutTimer);
+                clearInterval(this.pollingInterval);
+                this.isLoading = false;
+                reject(pollError);
+              }
+            }, 2e3);
+          });
+        } catch (error) {
+          this.isLoading = false;
+          uni.showToast({ title: error.message, icon: "none" });
+          return Promise.reject(error);
         }
       },
-      saveRoutes() {
-        uni.setStorageSync("patrol_routes", this.routes);
+      async loadRoutes() {
+        try {
+          const result = await this.executeCommand("get_patrol_routes", {}, "正在获取巡逻路线...");
+          if (result && result.fileContent) {
+            const config = JSON.parse(result.fileContent);
+            this.routes = config.routes || [];
+          } else {
+            this.routes = [];
+          }
+        } catch (error) {
+          formatAppLog("error", "at pages/patrol/index.vue:160", "获取巡逻路线失败:", error);
+          const storedRoutes = uni.getStorageSync("patrol_routes");
+          if (storedRoutes && storedRoutes.length > 0) {
+            this.routes = storedRoutes;
+          } else {
+            this.routes = [];
+            uni.showToast({ title: `获取路线失败: ${error.message}`, icon: "none" });
+          }
+        }
       },
-      startPatrol(index) {
+      async startPatrol(index) {
         const route = this.routes[index];
-        uni.showToast({
-          title: `${route.name} 已开始巡逻`,
-          icon: "none"
-        });
+        if (!route.points || route.points.length < 2) {
+          uni.showToast({
+            title: "该路线点位不足，无法启动巡逻",
+            icon: "none"
+          });
+          return;
+        }
+        try {
+          await this.executeCommand("start_patrol", { route_id: route.id }, `正在启动巡逻路线: ${route.name}...`);
+          uni.showToast({
+            title: `${route.name} 巡逻已启动`,
+            icon: "success"
+          });
+        } catch (error) {
+          formatAppLog("error", "at pages/patrol/index.vue:189", "启动巡逻失败:", error);
+          uni.showToast({
+            title: `启动失败: ${error.message}`,
+            icon: "none"
+          });
+        }
       },
       addRoute() {
         uni.navigateTo({
@@ -5299,19 +5405,10 @@ ${o3}
       },
       renameRoute(index) {
         uni.showModal({
-          title: "重命名路线",
-          content: this.routes[index].name,
-          editable: true,
-          success: (res) => {
-            if (res.confirm && res.content) {
-              this.routes[index].name = res.content;
-              this.saveRoutes();
-              uni.showToast({
-                title: "重命名成功",
-                icon: "success"
-              });
-            }
-          }
+          title: "查看路线详情",
+          content: `路线名称: ${this.routes[index].name}
+点位数量: ${this.routes[index].points ? this.routes[index].points.length : 0}`,
+          showCancel: false
         });
       },
       deleteRoute(index) {
@@ -5321,7 +5418,6 @@ ${o3}
           success: (res) => {
             if (res.confirm) {
               this.routes.splice(index, 1);
-              this.saveRoutes();
               uni.showToast({
                 title: "删除成功",
                 icon: "success"
@@ -5329,11 +5425,40 @@ ${o3}
             }
           }
         });
+      },
+      async stopPatrol() {
+        try {
+          await this.executeCommand("stop_patrol", {}, "正在停止巡逻...");
+          uni.showToast({
+            title: "巡逻已停止",
+            icon: "success"
+          });
+        } catch (error) {
+          formatAppLog("error", "at pages/patrol/index.vue:235", "停止巡逻失败:", error);
+          uni.showToast({
+            title: `停止失败: ${error.message}`,
+            icon: "none"
+          });
+        }
       }
     }
   };
   function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "page-container" }, [
+      vue.createCommentVNode(" 全屏加载动画 "),
+      $data.isLoading ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "loading-overlay"
+      }, [
+        vue.createElementVNode("view", { class: "loading-spinner" }),
+        vue.createElementVNode(
+          "text",
+          { class: "loading-text" },
+          vue.toDisplayString($data.loadingText),
+          1
+          /* TEXT */
+        )
+      ])) : vue.createCommentVNode("v-if", true),
       vue.createCommentVNode(" 1. 自定义导航栏 "),
       vue.createElementVNode("view", { class: "custom-nav-bar" }, [
         vue.createElementVNode("text", {
@@ -5391,8 +5516,12 @@ ${o3}
       vue.createCommentVNode(" 3. 添加路线按钮 "),
       vue.createElementVNode("view", { class: "add-route-button-container" }, [
         vue.createElementVNode("button", {
+          class: "stop-patrol-button",
+          onClick: _cache[1] || (_cache[1] = (...args) => $options.stopPatrol && $options.stopPatrol(...args))
+        }, "停止巡逻"),
+        vue.createElementVNode("button", {
           class: "add-route-button",
-          onClick: _cache[1] || (_cache[1] = (...args) => $options.addRoute && $options.addRoute(...args))
+          onClick: _cache[2] || (_cache[2] = (...args) => $options.addRoute && $options.addRoute(...args))
         }, "添加路线")
       ])
     ]);
@@ -5511,7 +5640,7 @@ ${o3}
         const point = this.selectedPoints.splice(index, 1)[0];
         this.availablePoints.push(point);
       },
-      confirmAddRoute() {
+      async confirmAddRoute() {
         if (this.selectedPoints.length < 2) {
           uni.showToast({
             title: "请至少选择两个点位",
@@ -5519,40 +5648,28 @@ ${o3}
           });
           return;
         }
-        const routes = uni.getStorageSync("patrol_routes") || [];
-        const isDuplicate = routes.some((route) => {
-          if (route.points.length !== this.selectedPoints.length) {
-            return false;
-          }
-          for (let i2 = 0; i2 < route.points.length; i2++) {
-            if (route.points[i2].name !== this.selectedPoints[i2].name) {
-              return false;
-            }
-          }
-          return true;
-        });
-        if (isDuplicate) {
+        try {
+          const newRoute = {
+            name: `路线 ${Date.now()}`,
+            // 使用时间戳确保唯一性
+            description: "自定义路线",
+            points: this.selectedPoints
+          };
+          await this.executeCommand("save_patrol_route", { route: newRoute }, "正在保存路线...");
           uni.showToast({
-            title: "该路线已存在",
+            title: "路线保存成功",
+            icon: "success"
+          });
+          setTimeout(() => {
+            uni.navigateBack();
+          }, 1500);
+        } catch (error) {
+          formatAppLog("error", "at pages/patrol/add.vue:220", "保存路线失败:", error);
+          uni.showToast({
+            title: `保存失败: ${error.message}`,
             icon: "none"
           });
-          return;
         }
-        const newRoute = {
-          name: `路线 ${routes.length + 1}`,
-          description: "自定义路线",
-          points: this.selectedPoints
-        };
-        routes.push(newRoute);
-        uni.setStorageSync("patrol_routes", routes);
-        uni.$emit("routes-updated");
-        uni.showToast({
-          title: "路线添加成功",
-          icon: "success"
-        });
-        setTimeout(() => {
-          uni.navigateBack();
-        }, 1500);
       }
     }
   };
