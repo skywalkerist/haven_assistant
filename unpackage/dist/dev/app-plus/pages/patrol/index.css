@@ -1,0 +1,112 @@
+
+.page-container {
+		display: flex;
+		flex-direction: column;
+		background: linear-gradient(to bottom, #49C6A7, #F4F4F4 50%);
+		height: 100vh;
+		color: #333;
+}
+
+	/* 自定义导航栏 */
+.custom-nav-bar {
+		position: relative;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 2.8125rem;
+		padding-top: var(--status-bar-height);
+}
+.back-arrow {
+		position: absolute;
+		left: 1.25rem;
+		top: 50%;
+		transform: translateY(-50%);
+		font-size: 1.5rem;
+		font-weight: bold;
+		color: #000000;
+}
+.nav-title {
+		font-size: 1.125rem;
+		font-weight: bold;
+		color: #000000;
+}
+
+	/* 路线选择 */
+.route-selection-section {
+		padding: 1.25rem;
+		flex: 1;
+		overflow-y: auto;
+}
+.section-title {
+		font-size: 1.125rem;
+		font-weight: bold;
+		margin-bottom: 0.9375rem;
+		color: #000000;
+}
+.route-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 0.9375rem;
+}
+.route-card {
+		background-color: #FFFFFF;
+		border-radius: 0.625rem;
+		padding: 0.9375rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+}
+.route-info {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+}
+.route-actions {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 0.625rem;
+}
+.delete-button {
+		background-color: #FF4D4F;
+		color: #FFFFFF;
+		font-size: 0.75rem;
+		padding: 0.15625rem 0.625rem;
+		border-radius: 0.9375rem;
+		line-height: 1.5;
+		border: none;
+}
+.route-name {
+		font-size: 1rem;
+		font-weight: bold;
+}
+.route-description {
+		font-size: 0.75rem;
+		color: #999;
+		margin-top: 0.15625rem;
+}
+.start-button {
+		background-color: #28a745;
+		color: #FFFFFF;
+		font-size: 0.875rem;
+		padding: 0.3125rem 0.9375rem;
+		border-radius: 0.9375rem;
+		line-height: 1.5;
+		border: none;
+}
+
+	/* 添加路线按钮 */
+.add-route-button-container {
+		padding: 1.25rem;
+		background-color: #F4F4F4;
+}
+.add-route-button {
+		background-color: #28a745;
+		color: #FFFFFF;
+		font-size: 1.125rem;
+		font-weight: bold;
+		border-radius: 1.5625rem;
+		height: 3.125rem;
+		line-height: 3.125rem;
+		text-align: center;
+}

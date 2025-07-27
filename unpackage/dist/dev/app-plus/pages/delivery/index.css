@@ -1,0 +1,119 @@
+
+body {
+		height: 100%;
+}
+.page-container {
+		display: flex;
+		flex-direction: column;
+		background-image: url('../../static/background.png');
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position: center;
+		height: 100vh;
+		color: #333;
+}
+
+	/* 自定义导航栏 */
+.custom-nav-bar {
+		position: relative;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 2.8125rem;
+		padding-top: var(--status-bar-height); /* 适配状态栏 */
+}
+.back-arrow {
+		position: absolute;
+		left: 1.25rem;
+		top: 50%;
+		transform: translateY(-50%);
+		font-size: 1.5rem;
+		font-weight: bold;
+		color: #000000;
+}
+.nav-title {
+		font-size: 1.125rem;
+		font-weight: bold;
+		color: #000000;
+}
+
+	/* 当前区域 */
+.current-area-section {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: 1.25rem;
+		text-align: center;
+}
+.area-label {
+		font-size: 0.9375rem;
+		color: #FFFFFF;
+		opacity: 0.9;
+}
+.area-name {
+		font-size: 1.875rem;
+		font-weight: bold;
+		color: #FFFFFF;
+		margin-top: 0.3125rem;
+}
+
+	/* 目的地设置 */
+.point-management-section {
+		flex: 1;
+		background-color: #F4F4F4;
+		border-top-left-radius: 1.25rem;
+		border-top-right-radius: 1.25rem;
+		padding: 1.25rem;
+		padding-bottom: calc(1.25rem + var(--safe-area-inset-bottom)); /* 适配底部安全区 */
+		overflow-y: auto; /* 内容溢出时可滚动 */
+		min-height: 0; /* 解决flex布局在某些情况下的溢出问题 */
+}
+.section-title {
+		font-size: 1.125rem;
+		font-weight: bold;
+		margin-bottom: 0.9375rem;
+}
+.point-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.9375rem;
+}
+.point-card {
+		background-color: #FFFFFF;
+		border-radius: 0.625rem;
+		padding: 0.9375rem;
+		display: flex;
+		align-items: center;
+}
+.point-icon {
+		width: 2.5rem;
+		height: 2.5rem;
+		margin-right: 0.625rem;
+}
+.point-info {
+		display: flex;
+		flex-direction: column;
+}
+.point-name {
+		font-size: 1rem;
+		font-weight: bold;
+}
+.point-location {
+		font-size: 0.75rem;
+		color: #999;
+		margin-top: 0.15625rem;
+}
+.delivery-button {
+		margin-top: 0.3125rem;
+		background-color: #28a745; /* Green color */
+		color: #FFFFFF;
+		font-size: 0.75rem;
+		padding: 0.15625rem 0.625rem;
+		border-radius: 0.9375rem;
+		line-height: 1.5;
+		border: none;
+		text-align: center;
+		display: inline-block;
+		width: auto;
+		height: auto;
+}

@@ -47,6 +47,24 @@
 			"style": {
 				"navigationBarTitleText": "人脸录入"
 			}
+		},
+		{
+			"path": "pages/delivery/index",
+			"style": {
+				"navigationBarTitleText": "物品配送"
+			}
+		},
+		{
+			"path": "pages/patrol/index",
+			"style": {
+				"navigationBarTitleText": "安防巡逻"
+			}
+		},
+		{
+			"path": "pages/patrol/add",
+			"style": {
+				"navigationBarTitleText": "添加路线"
+			}
 		}
 	],
 	"globalStyle": {

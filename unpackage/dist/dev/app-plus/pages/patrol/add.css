@@ -1,0 +1,129 @@
+
+.page-container {
+		display: flex;
+		flex-direction: column;
+		background: linear-gradient(to bottom, #49C6A7, #F4F4F4 30%);
+		height: 100vh;
+}
+.custom-nav-bar {
+		position: relative;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 2.8125rem;
+		padding-top: var(--status-bar-height);
+}
+.back-arrow {
+		position: absolute;
+		left: 1.25rem;
+		font-size: 1.5rem;
+		font-weight: bold;
+		color: #000000;
+}
+.nav-title {
+		font-size: 1.125rem;
+		font-weight: bold;
+		color: #000000;
+}
+.section-title {
+		font-size: 1.125rem;
+		font-weight: bold;
+		margin-bottom: 0.9375rem;
+		color: #000000;
+}
+.new-route-section {
+		padding: 0.625rem 1.25rem;
+}
+.empty-prompt {
+		color: #666;
+		text-align: center;
+		padding: 1.25rem 0;
+}
+.selected-points-container {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.625rem;
+}
+.selected-point-card {
+		background-color: #FFF;
+		border-radius: 0.625rem;
+		padding: 0.625rem;
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+}
+.point-order {
+		font-size: 1.875rem;
+		font-weight: bold;
+		color: #E0E0E0;
+}
+.point-info {
+		display: flex;
+		flex-direction: column;
+}
+.point-name {
+		font-size: 0.9375rem;
+		font-weight: bold;
+}
+.point-location {
+		font-size: 0.75rem;
+		color: #999;
+}
+.delete-button {
+		background-color: #FF4D4F;
+		color: #FFF;
+		font-size: 0.75rem;
+		padding: 0.15625rem 0.46875rem;
+		border-radius: 0.625rem;
+		border: none;
+}
+.point-selection-section {
+		flex: 1;
+		background-color: #F4F4F4;
+		border-top-left-radius: 1.25rem;
+		border-top-right-radius: 1.25rem;
+		padding: 1.25rem;
+		margin-top: 0.625rem;
+		overflow-y: auto;
+}
+.available-points-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.9375rem;
+}
+.available-point-card {
+		background-color: #FFF;
+		border-radius: 0.625rem;
+		padding: 0.625rem;
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+}
+.point-icon {
+		width: 1.875rem;
+		height: 1.875rem;
+}
+.add-button {
+		background-color: #28a745;
+		color: #FFF;
+		font-size: 0.75rem;
+		padding: 0.15625rem 0.46875rem;
+		border-radius: 0.625rem;
+		border: none;
+}
+.confirm-button-container {
+		padding: 0.625rem 1.25rem;
+		background-color: #F4F4F4;
+}
+.confirm-button {
+		background-color: #28a745;
+		color: #FFF;
+		font-size: 1.125rem;
+		border-radius: 1.5625rem;
+		height: 3.125rem;
+		line-height: 3.125rem;
+}
+.confirm-button[disabled] {
+		background-color: #A9D4B5;
+		color: #E0E0E0;
+}

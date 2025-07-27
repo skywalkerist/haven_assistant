@@ -2,69 +2,84 @@
 .page-container {
 		display: flex;
 		flex-direction: column;
-		background-color: #FFFFFF;
+		background-image: url('../../static/background.png');
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position: center;
 		min-height: 100vh;
-		padding-bottom: 3.75rem; /* 为底部导航栏留出空间 */
+		padding-bottom: 5rem; /* 增加padding为语音条和导航栏留出空间 */
 }
 
 	/* 顶部状态区 */
 .top-status-section {
 		display: flex;
-		padding: 1.25rem;
+		padding: 1.25rem 5rem 1.25rem 1.25rem;
 		align-items: center;
 }
 .robot-illustration {
-		flex: 1;
+		flex: 1.2;
+		display: flex;
+		justify-content: center;
+		align-items: center;
 }
 .robot-image {
-		width: 9.375rem;
-		height: 9.375rem;
+		width: 10rem;
+		height: 10rem;
 }
-.robot-info {
-		flex: 2;
+.robot-info-container {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
-		padding-left: 0.625rem;
+		align-items: flex-start;
 }
 .info-title {
 		font-size: 1rem;
 		font-weight: bold;
+		color: #000000;
 		margin-bottom: 0.3125rem;
 }
-.info-list {
-		font-size: 0.75rem;
-		color: #666;
+.robot-info-card {
+		background-color: rgba(255, 255, 255, 0.5);
+		border-radius: 0.625rem;
+		padding: 0.625rem;
+		font-size: 0.8125rem;
+		color: #333;
+		width: 100%;
 }
 .call-button {
 		margin-top: 0.625rem;
-		background-color: #f0f0f0;
-		color: #333;
-		font-size: 0.875rem;
+		background-color: #28a745; /* Green color from design */
+		color: #FFFFFF;
+		font-size: 1rem;
+		font-weight: bold;
 		border-radius: 1.25rem;
-		height: 1.875rem;
-		line-height: 1.875rem;
+		height: 2.5rem;
+		line-height: 2.5rem;
+		width: 100%;
+		text-align: center;
 }
 
 	/* 任务下发区 */
 .task-assignment-section {
 		padding: 0 1.25rem;
+		margin-top: 0.625rem;
 }
 .section-title {
 		font-size: 1.125rem;
 		font-weight: bold;
 		margin-bottom: 0.625rem;
+		color: #000000;
 }
 .task-grid {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
-		gap: 0.625rem;
+		gap: 0.78125rem;
 }
 .task-card {
-		background-color: #FFFFFF;
+		background-color: #F7F7F7;
 		border-radius: 0.625rem;
-		box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.05);
 		padding: 0.9375rem;
-		height: 5.625rem;
+		height: 5rem;
 		position: relative;
 		overflow: hidden;
 }
@@ -75,31 +90,52 @@
 		z-index: 2;
 }
 .card-title {
-		font-size: 1.0625rem;
+		font-size: 1rem;
 		font-weight: bold;
+		color: #333;
 }
 .card-subtitle {
-		font-size: 0.75rem;
+		font-size: 0.6875rem;
 		color: #999;
-		margin-top: 0.3125rem;
+		margin-top: 0.25rem;
 }
 .card-icon {
 		position: absolute;
-		bottom: -0.625rem;
-		right: -0.625rem;
-		width: 3.75rem;
-		height: 3.75rem;
+		bottom: -0.46875rem;
+		right: -0.46875rem;
+		width: 3.125rem;
+		height: 3.125rem;
 		z-index: 1;
-		opacity: 0.5;
+		opacity: 0.2;
 }
 .card-icon-image {
 		width: 100%;
 		height: 100%;
 }
 
+	/* 语音播报条 */
+.voice-broadcast-bar {
+		margin: 0.9375rem 1.25rem;
+		padding: 0.625rem;
+		background-color: rgba(230, 247, 237, 0.8); /* Light green with transparency */
+		border-radius: 0.625rem;
+		display: flex;
+		align-items: center;
+}
+.voice-icon {
+		width: 1.25rem;
+		height: 1.25rem;
+		margin-right: 0.625rem;
+}
+.voice-text {
+		font-size: 0.75rem;
+		color: #555;
+}
+
 	/* 底部导航栏 */
 .bottom-nav-bar {
 		position: fixed;
+		z-index: 100;
 		bottom: 0;
 		left: 0;
 		right: 0;
@@ -107,8 +143,10 @@
 		justify-content: space-around;
 		align-items: center;
 		height: 3.75rem;
-		background-color: #f8f8f8;
-		border-top: 0.03125rem solid #e7e7e7;
+		background-color: #FFFFFF;
+		border-top-left-radius: 1.25rem;
+		border-top-right-radius: 1.25rem;
+		box-shadow: 0 -0.0625rem 0.3125rem rgba(0,0,0,0.05);
 }
 .nav-item {
 		display: flex;
@@ -121,14 +159,8 @@
 		width: 1.5625rem;
 		height: 1.5625rem;
 }
-.nav-item.active .active-icon-background {
-		background-color: #e0e0e0; /* 浅灰色背景 */
-		border-radius: 0.78125rem; /* 圆角 */
-		padding: 0.46875rem;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-}
 .nav-item.active .nav-icon-image {
-		/* 也许可以给激活的图标加个效果，如果需要的话 */
+		transform: translateY(-0.3125rem); /* Move icon up slightly */
+		width: 2.1875rem; /* Make active icon larger */
+		height: 2.1875rem;
 }
