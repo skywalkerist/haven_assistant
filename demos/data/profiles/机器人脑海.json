@@ -1,0 +1,155 @@
+[
+  {
+    "type": "user_habit",
+    "content": "陆李昕喜欢在清晨和黄昏拍照，认为那时的光线最温柔",
+    "evidence": "陆李昕喜欢在清晨和黄昏拍照，认为那时的光线最温柔",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "1ec0666b-e959-4b25-8fe4-2f09be4b2b1c"
+  },
+  {
+    "type": "user_habit",
+    "content": "陆李昕每周会去爬香山，下雨天则在跑步机上跑步",
+    "evidence": "陆李昕每周会去爬香山，下雨天则在跑步机上跑步",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "10b16a3d-4fd2-45e3-89ef-7ff8871e6fe2"
+  },
+  {
+    "type": "user_habit",
+    "content": "陆李昕认为运动时容易产生好点子，机器人项目的许多创意来自爬山时",
+    "evidence": "陆李昕认为运动时容易产生好点子，机器人项目的许多创意来自爬山时",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "78a7a016-dc83-4e36-b60b-e36b498439d1"
+  },
+  {
+    "type": "user_habit",
+    "content": "陆李昕是个摄影发烧友，尤其喜欢风景摄影",
+    "evidence": "陆李昕是个摄影发烧友，尤其喜欢风景摄影",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "03b3ae60-5f66-4bf1-b77d-bb622bfdefe4"
+  },
+  {
+    "type": "user_habit",
+    "content": "陆李昕计划去西藏拍星空，想找能看到银河的地方",
+    "evidence": "陆李昕计划去西藏拍星空，想找能看到银河的地方",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "836835c6-958b-4698-b030-9b82ba97fc3e"
+  },
+  {
+    "type": "user_habit",
+    "content": "程一苓想去贵州旅游，需要做攻略",
+    "evidence": "程一苓想去贵州旅游，需要做攻略",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "63d48d65-61fd-4b43-b009-8676e33de0fb"
+  },
+  {
+    "type": "user_habit",
+    "content": "程一苓对贵州的黄果树瀑布、西江千户苗寨、荔波小七孔、镇远古城感兴趣",
+    "evidence": "程一苓对贵州的黄果树瀑布、西江千户苗寨、荔波小七孔、镇远古城感兴趣",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "340a4598-9502-4f39-bc11-c7eafa682d8b"
+  },
+  {
+    "type": "user_habit",
+    "content": "用户询问芒果吃多了会有什么问题",
+    "evidence": "用户询问芒果吃多了会有什么问题",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "ec818ba7-15fd-4094-b1b9-6add6801f216"
+  },
+  {
+    "type": "user_habit",
+    "content": "用户关注老人相关话题",
+    "evidence": "用户关注老人相关话题",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "ecc4ed64-e20a-457e-8f9d-4709465839e4"
+  },
+  {
+    "type": "user_habit",
+    "content": "用户习惯用简短语句表达需求",
+    "evidence": "用户习惯用简短语句表达需求",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "12f1a991-87bc-47ac-a516-1234317799a9"
+  },
+  {
+    "type": "user_habit",
+    "content": "用户对健康饮食信息感兴趣（芒果相关问题）",
+    "evidence": "用户对健康饮食信息感兴趣（芒果相关问题）",
+    "confidence": "high",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "802c82a8-3666-4497-b269-384a9912630a"
+  },
+  {
+    "type": "user_habit",
+    "content": "程一苓自称每天唱KTV10小时，非常喜欢唱歌",
+    "evidence": "程一苓自称每天唱KTV10小时，非常喜欢唱歌",
+    "confidence": "medium",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "1de3243c-7f57-479a-9eff-0081b44cbcfe"
+  },
+  {
+    "type": "user_habit",
+    "content": "程一苓会下棋但自述下不了决心",
+    "evidence": "程一苓会下棋但自述下不了决心",
+    "confidence": "medium",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "14635567-1d93-4aab-a61b-bda1ccd0f202"
+  },
+  {
+    "type": "user_habit",
+    "content": "程一苓可能喜欢贵州的酸汤鱼、丝娃娃、肠旺面等特色美食",
+    "evidence": "程一苓可能喜欢贵州的酸汤鱼、丝娃娃、肠旺面等特色美食",
+    "confidence": "medium",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "f5b2e7e5-9b64-45db-8fd9-71719f318f8d"
+  },
+  {
+    "type": "user_habit",
+    "content": "程一苓询问了《平凡的世界》这本书，可能对反映农村生活变化的小说感兴趣",
+    "evidence": "程一苓询问了《平凡的世界》这本书，可能对反映农村生活变化的小说感兴趣",
+    "confidence": "medium",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "1afedfc1-4acb-4282-8019-67654b36c0d7"
+  },
+  {
+    "type": "user_habit",
+    "content": "用户提到琴房，可能对音乐感兴趣",
+    "evidence": "用户提到琴房，可能对音乐感兴趣",
+    "confidence": "medium",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "4aff56d9-9a34-49d2-91bb-c6fdebdacf3e"
+  },
+  {
+    "type": "user_habit",
+    "content": "用户可能经常与养老院场景互动（提到'我们养老院'）",
+    "evidence": "用户可能经常与养老院场景互动（提到'我们养老院'）",
+    "confidence": "medium",
+    "actionable": true,
+    "discovered_time": "2025-07-28 07:35",
+    "id": "23230a5c-b47a-4cfd-a1be-cade0642650e"
+  }
+]

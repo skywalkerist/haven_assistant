@@ -1,0 +1,24 @@
+{
+    "name": "陈一林",
+    "age": "53岁",
+    "occupation": "老师",
+    "hobbies": [],
+    "personality": "女性 肠胃炎，不能吃冷的",
+    "favorite_foods": [],
+    "habits": [],
+    "quirks": [],
+    "hometown": "",
+    "preferences": {
+        "likes": [
+            "唱歌",
+            "跳舞",
+            "看书"
+        ],
+        "dislikes": [
+            "油腻食物",
+            "冷饮"
+        ]
+    },
+    "mood": "开心",
+    "last_interaction": "2025-07-26T10:52:55.046221"
+}

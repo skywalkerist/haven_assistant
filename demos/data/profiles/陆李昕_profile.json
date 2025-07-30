@@ -1,0 +1,25 @@
+{
+    "name": "陆李昕",
+    "age": null,
+    "occupation": null,
+    "hobbies": [
+        "爬山",
+        "跑步"
+    ],
+    "personality": "友好且乐于互动",
+    "favorite_foods": [
+        "鲍鱼面"
+    ],
+    "habits": [
+        "不喝酒"
+    ],
+    "quirks": [],
+    "hometown": "农村",
+    "preferences": {
+        "interaction": "喜欢通过递归任务执行方案互动",
+        "communication": "偏好逐步处理任务"
+    },
+    "mood": "沮丧",
+    "last_interaction": "2025-07-28T17:46:52.648212",
+    "profile_id": "陆李昕"
+}
