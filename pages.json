@@ -9,7 +9,7 @@
 		{
 			"path": "pages/safety/index",
 			"style": {
-				"navigationBarTitleText": "安全监控"
+				"navigationBarTitleText": "警告"
 			}
 		},
 		{
@@ -98,7 +98,7 @@
 				"pagePath": "pages/safety/index",
 				"iconPath": "static/icon_warning.png",
 				"selectedIconPath": "static/icon_warning.png",
-				"text": "安全"
+				"text": "警告"
 			},
 			{
 				"pagePath": "pages/index/index",

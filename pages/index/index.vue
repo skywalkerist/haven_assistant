@@ -49,8 +49,8 @@
 					subtitle: '快速配送 解放双手',
 					icon: '/static/icon_delivery.png'
 				}, {
-					title: '个性设置',
-					subtitle: '人员注册 声音配置',
+					title: '音色管理',
+					subtitle: '聊天分享 记录回忆',
 					icon: '/static/icon_personnalset.png'
 				}, {
 					title: '点位设置',
@@ -81,9 +81,9 @@
 					uni.navigateTo({
 						url: '/pages/delivery/index'
 					});
-				} else if (title === '个性设置') {
+				} else if (title === '音色管理') {
 					uni.navigateTo({
-						url: '/pages/personalization/index'
+						url: '/pages/voice_management/index'
 					});
 				} else if (title === '点位设置') {
 					uni.navigateTo({
@@ -200,12 +200,12 @@
 		z-index: 2;
 	}
 	.card-title {
-		font-size: 32rpx;
+		font-size: 36rpx;
 		font-weight: bold;
 		color: #333;
 	}
 	.card-subtitle {
-		font-size: 22rpx;
+		font-size: 26rpx;
 		color: #999;
 		margin-top: 8rpx;
 	}
@@ -213,10 +213,10 @@
 		position: absolute;
 		bottom: -15rpx;
 		right: -15rpx;
-		width: 100rpx;
-		height: 100rpx;
+		width: 120rpx;
+		height: 120rpx;
 		z-index: 1;
-		opacity: 0.2;
+		opacity: 1;
 	}
 	.card-icon-image {
 		width: 100%;

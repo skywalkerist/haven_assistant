@@ -1,171 +1,48 @@
 
-.loading-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-color: rgba(0, 0, 0, 0.5);
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		z-index: 1000;
-}
-.loading-spinner {
-		border: 4px solid #f3f3f3;
-		border-top: 4px solid #3498db;
-		border-radius: 50%;
-		width: 40px;
-		height: 40px;
-		animation: spin 1s linear infinite;
-}
-.loading-text {
-		color: white;
-		margin-top: 15px;
-		font-size: 16px;
-}
-@keyframes spin {
-0% { transform: rotate(0deg);
-}
-100% { transform: rotate(360deg);
-}
-}
 .page-container {
-		display: flex;
-		flex-direction: column;
-		background-image: url('../../static/background.png');
-		background-size: cover;
-		background-repeat: no-repeat;
-		background-position: center;
+		background: linear-gradient(180deg, #FF6B6B 0%, #FFE66D 100%);
 		min-height: 100vh;
-		padding-bottom: 0.9375rem; /* 减少padding，原生TabBar会自动处理 */
-}
-
-	/* 顶部状态区 */
-.top-status-section {
-		display: flex;
-		padding: 1.25rem 5rem 1.25rem 1.25rem;
-		align-items: center;
-}
-.safety-illustration {
-		flex: 1.2;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-}
-.safety-image {
-		width: 10rem;
-		height: 10rem;
-}
-.safety-info-container {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
-		align-items: flex-start;
-}
-.info-title {
-		font-size: 1rem;
-		font-weight: bold;
-		color: #000000;
-		margin-bottom: 0.3125rem;
-}
-.safety-info-card {
-		background-color: rgba(255, 255, 255, 0.5);
-		border-radius: 0.625rem;
-		padding: 0.625rem;
-		font-size: 0.8125rem;
-		color: #333;
-		width: 100%;
-}
-.status-item {
-		font-weight: bold;
-}
-.status-normal {
-		color: #28a745;
-}
-.status-warning {
-		color: #ffc107;
-}
-.status-error {
-		color: #dc3545;
-}
-.refresh-button {
-		margin-top: 0.625rem;
-		background-color: #007bff;
-		color: #FFFFFF;
-		font-size: 1rem;
-		font-weight: bold;
-		border-radius: 1.25rem;
-		height: 2.5rem;
-		line-height: 2.5rem;
-		width: 100%;
-		text-align: center;
+		padding-bottom: 0.9375rem; /* 适配原生TabBar */
 }
 
-	/* 安全功能区 */
-.safety-functions-section {
-		padding: 0 1.25rem;
-		margin-top: 0.625rem;
+	/* 当前活跃警报 */
+.active-alerts-section {
+		padding: 1.25rem;
+		flex: 1;
 }
 .section-title {
-		font-size: 1.125rem;
-		font-weight: bold;
-		margin-bottom: 0.625rem;
-		color: #000000;
-}
-.function-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 0.78125rem;
-}
-.function-card {
-		background-color: #F7F7F7;
-		border-radius: 0.625rem;
-		padding: 0.9375rem;
-		height: 5rem;
-		position: relative;
-		overflow: hidden;
-}
-.card-text {
-		display: flex;
-		flex-direction: column;
-		position: relative;
-		z-index: 2;
-}
-.card-title {
 		font-size: 1rem;
 		font-weight: bold;
-		color: #333;
+		color: #FFFFFF;
+		margin-bottom: 0.9375rem;
 }
-.card-subtitle {
-		font-size: 0.6875rem;
-		color: #999;
-		margin-top: 0.25rem;
-}
-.card-icon {
-		position: absolute;
-		bottom: -0.46875rem;
-		right: -0.46875rem;
-		width: 3.125rem;
-		height: 3.125rem;
-		z-index: 1;
-		opacity: 0.2;
-}
-.card-icon-image {
-		width: 100%;
-		height: 100%;
-}
-
-	/* 报警记录区 */
-.alert-history-section {
-		flex: 1;
-		margin: 0.9375rem 1.25rem 0;
-		background-color: rgba(255, 255, 255, 0.9);
-		border-radius: 0.625rem;
-		padding: 0.9375rem;
+.empty-alerts {
 		display: flex;
 		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		height: 9.375rem;
+		background-color: rgba(255, 255, 255, 0.9);
+		border-radius: 0.625rem;
+}
+.empty-icon {
+		width: 3.75rem;
+		height: 3.75rem;
+		opacity: 0.5;
+		margin-bottom: 0.625rem;
+}
+.empty-text {
+		color: #999;
+		font-size: 0.875rem;
+}
+.alert-card {
+		background-color: #FFFFFF;
+		border-radius: 0.625rem;
+		padding: 0.9375rem;
+		margin-bottom: 0.625rem;
+		box-shadow: 0 0.25rem 0.78125rem rgba(0,0,0,0.1);
 }
 .alert-header {
 		display: flex;
@@ -173,98 +50,160 @@
 		align-items: center;
 		margin-bottom: 0.625rem;
 }
-.clear-button {
-		background-color: #6c757d;
+.alert-type {
+		padding: 0.25rem 0.625rem;
+		border-radius: 0.625rem;
+		font-size: 0.75rem;
+		color: #FFFFFF;
+}
+.alert-type.fire {
+		background-color: #FF4757;
+}
+.alert-type.fall {
+		background-color: #FF6B35;
+}
+.alert-type.security {
+		background-color: #5352ED;
+}
+.alert-time {
+		font-size: 0.8125rem;
+		color: #666;
+}
+.alert-description {
+		font-size: 0.9375rem;
+		color: #333;
+		margin-bottom: 0.78125rem;
+		font-weight: 500;
+}
+	
+	/* 机器人信息 */
+.robot-info {
+		background-color: #F8F9FA;
+		border-radius: 0.46875rem;
+		padding: 0.625rem;
+		margin-bottom: 0.625rem;
+}
+.robot-detail {
+		display: flex;
+		justify-content: space-between;
+		margin-bottom: 0.3125rem;
+}
+.robot-detail:last-child {
+		margin-bottom: 0;
+}
+.robot-label {
+		font-size: 0.8125rem;
+		color: #666;
+}
+.robot-value {
+		font-size: 0.8125rem;
+		color: #333;
+		font-weight: 500;
+}
+	
+	/* 位置信息 */
+.location-info {
+		background-color: #E3F2FD;
+		border-radius: 0.46875rem;
+		padding: 0.46875rem 0.625rem;
+		margin-bottom: 0.78125rem;
+}
+.location-text {
+		font-size: 0.875rem;
+		color: #1976D2;
+		font-weight: 500;
+}
+	
+	/* 操作按钮 */
+.alert-actions {
+		display: flex;
+		gap: 0.625rem;
+}
+.action-btn {
+		flex: 1;
+		height: 2.5rem;
+		border-radius: 1.25rem;
+		font-size: 0.875rem;
+		border: none;
+}
+.action-btn.primary {
+		background-color: #4CAF50;
+		color: #FFFFFF;
+}
+.action-btn.secondary {
+		background-color: #2196F3;
+		color: #FFFFFF;
+}
+
+	/* 历史警报 */
+.history-section {
+		background-color: rgba(255, 255, 255, 0.95);
+		margin: 0.625rem 1.25rem 0;
+		border-radius: 0.625rem 0.625rem 0 0;
+		padding: 0.9375rem;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+}
+.history-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 0.625rem;
+}
+.history-header .section-title {
+		color: #333;
+		margin-bottom: 0;
+}
+.clear-btn {
+		background-color: #6C757D;
 		color: #FFFFFF;
 		font-size: 0.75rem;
 		padding: 0.25rem 0.625rem;
 		border-radius: 0.625rem;
-		line-height: 1.5;
 		border: none;
 }
-.alert-list {
+.history-list {
 		flex: 1;
 		max-height: 12.5rem;
 }
-.empty-alerts {
+.empty-history {
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		height: 6.25rem;
 		color: #999;
+		font-size: 0.875rem;
 }
-.alert-item {
+.history-item {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		padding: 0.625rem;
 		margin-bottom: 0.46875rem;
+		background-color: #F8F9FA;
 		border-radius: 0.46875rem;
-		background-color: #f8f9fa;
 }
-.alert-item.info {
-		border-left: 0.15625rem solid #17a2b8;
-}
-.alert-item.success {
-		border-left: 0.15625rem solid #28a745;
-}
-.alert-item.warning {
-		border-left: 0.15625rem solid #ffc107;
-}
-.alert-item.error {
-		border-left: 0.15625rem solid #dc3545;
-}
-.alert-content {
-		display: flex;
-		flex-direction: column;
-}
-.alert-title {
-		font-size: 0.875rem;
-		font-weight: bold;
-		color: #333;
-}
-.alert-time {
-		font-size: 0.6875rem;
-		color: #999;
-		margin-top: 0.15625rem;
-}
-.alert-level {
-		background-color: #e9ecef;
-		padding: 0.15625rem 0.46875rem;
-		border-radius: 0.46875rem;
-		font-size: 0.625rem;
-		color: #6c757d;
-}
-
-	/* 底部导航栏 */
-.bottom-nav-bar {
-		position: fixed;
-		z-index: 100;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		display: flex;
-		justify-content: space-around;
-		align-items: center;
-		height: 3.75rem;
-		background-color: #FFFFFF;
-		border-top-left-radius: 1.25rem;
-		border-top-right-radius: 1.25rem;
-		box-shadow: 0 -0.0625rem 0.3125rem rgba(0,0,0,0.05);
-}
-.nav-item {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
+.history-main {
 		flex: 1;
+		display: flex;
+		flex-direction: column;
 }
-.nav-icon-image {
-		width: 1.5625rem;
-		height: 1.5625rem;
+.history-title {
+		font-size: 0.875rem;
+		color: #333;
+		margin-bottom: 0.25rem;
 }
-.nav-item.active .nav-icon-image {
-		transform: translateY(-0.3125rem);
-		width: 2.1875rem;
-		height: 2.1875rem;
+.history-time {
+		font-size: 0.75rem;
+		color: #999;
+}
+.history-status {
+		padding: 0.25rem 0.46875rem;
+		border-radius: 0.46875rem;
+		font-size: 0.6875rem;
+}
+.history-status.completed {
+		background-color: #D4EDDA;
+		color: #155724;
 }

@@ -1,63 +1,68 @@
 <template>
 	<view class="page-container">
-		<!-- 1. 顶部用户信息区 -->
-		<view class="top-user-section">
-			<view class="user-avatar">
-				<image src="/static/icon_user.png" mode="aspectFit" class="avatar-image"></image>
+		<!-- 全屏加载动画 -->
+		<view v-if="isLoading" class="loading-overlay">
+			<view class="loading-spinner"></view>
+			<text class="loading-text">{{ loadingText }}</text>
+		</view>
+
+		<view class="scroll-content">
+			<!-- 1. 自定义导航栏 -->
+			<view class="custom-nav-bar">
+				<text class="nav-title">人员</text>
 			</view>
-			<view class="user-info-container">
-				<text class="user-name">{{ userInfo.name }}</text>
-				<text class="user-role">{{ userInfo.role }}</text>
-				<view class="user-stats">
-					<view class="stat-item">
-						<text class="stat-number">{{ userInfo.loginDays }}</text>
-						<text class="stat-label">连续登录天数</text>
-					</view>
-					<view class="stat-item">
-						<text class="stat-number">{{ userInfo.totalCommands }}</text>
-						<text class="stat-label">总指令数</text>
+
+			<!-- 2. 关怀通知 -->
+			<view class="care-section">
+				<text class="care-title">关怀通知</text>
+				<view class="notification-cards">
+					<view class="notification-card" v-for="item in careNotifications" :key="item.id">
+						<view class="card-header">
+							<image :src="item.avatar" class="avatar"></image>
+							<view class="info">
+								<text class="name">{{ item.name }}</text>
+								<text class="details">{{ item.gender }} {{ item.age }}岁</text>
+							</view>
+						</view>
+						<text class="message">{{ item.message }}</text>
+						<button class="ack-button" @click="acknowledgeNotification(item.id)">我已知晓</button>
 					</view>
 				</view>
 			</view>
-		</view>
 
-		<!-- 2. 功能菜单区 -->
-		<view class="menu-section">
-			<text class="section-title">功能菜单</text>
-			<view class="menu-list">
-				<view class="menu-item" v-for="(menu, index) in menuItems" :key="index" @click="handleMenuClick(menu.title)">
-					<view class="menu-icon">
-						<image :src="menu.icon" class="menu-icon-image" mode="aspectFit"></image>
-					</view>
-					<view class="menu-content">
-						<text class="menu-title">{{ menu.title }}</text>
-						<text class="menu-subtitle">{{ menu.subtitle }}</text>
-					</view>
-					<view class="menu-arrow">
-						<text>&gt;</text>
+			<!-- 3. 人员档案 -->
+			<view class="personnel-section">
+				<view class="personnel-header">
+					<text class="personnel-title">人员档案</text>
+					<view class="header-right">
+						<button class="face-register-button" @click="goToFaceRegister">人脸注册</button>
+						<view class="search-bar">
+							<input type="text" placeholder="搜索..." class="search-input" v-model="searchText" @input="handleSearch" />
+						</view>
 					</view>
 				</view>
-			</view>
-		</view>
-
-		<!-- 3. 使用统计区 -->
-		<view class="statistics-section">
-			<text class="section-title">使用统计</text>
-			<view class="stats-grid">
-				<view class="stats-card" v-for="(stat, index) in statistics" :key="index">
-					<text class="stats-number">{{ stat.number }}</text>
-					<text class="stats-label">{{ stat.label }}</text>
+				<!-- 调试信息 -->
+				<view v-if="status === 'success'" style="background: #f0f0f0; padding: 20rpx; margin: 20rpx;">
+					<text style="font-size: 24rpx; color: #666;">调试信息:</text>  
+					<text style="font-size: 24rpx; color: #333;">状态: {{ status }}</text>
+					<text style="font-size: 24rpx; color: #333;">原始数据长度: {{ personnelList.length }}</text>
+					<text style="font-size: 24rpx; color: #333;">过滤后长度: {{ filteredPersonnelList.length }}</text>
 				</view>
-			</view>
-		</view>
 
-		<!-- 4. 快速操作区 -->
-		<view class="quick-actions-section">
-			<text class="section-title">快速操作</text>
-			<view class="actions-grid">
-				<view class="action-button" v-for="(action, index) in quickActions" :key="index" @click="handleActionClick(action.title)">
-					<image :src="action.icon" class="action-icon" mode="aspectFit"></image>
-					<text class="action-text">{{ action.title }}</text>
+				<!-- 错误状态 -->
+				<view v-if="status === 'error'" class="status-handler">
+					<text class="error-message">{{ errorMessage }}</text>
+					<button class="retry-button" @click="fetchProfiles">点击重试</button>
+				</view>
+
+				<view v-else class="personnel-grid">
+					<view class="personnel-card" v-for="person in filteredPersonnelList" :key="person.profile_id" @click="handlePersonClick(person)">
+						<image :src="person.avatar || '/static/icon_user.png'" class="person-avatar"></image>
+						<view class="person-info">
+							<text class="person-name">{{ person.name }}</text>
+							<text class="person-details">{{ getPersonDetails(person) }}</text>
+						</view>
+					</view>
 				</view>
 			</view>
 		</view>
@@ -68,183 +73,290 @@
 	export default {
 		data() {
 			return {
-				userInfo: {
-					name: '管理员',
-					role: '系统管理员',
-					loginDays: 15,
-					totalCommands: 128
-				},
-				menuItems: [{
-					title: '个人设置',
-					subtitle: '修改个人信息和偏好',
-					icon: '/static/icon_personnalset.png'
+				searchText: '',
+				status: 'loading', // loading, success, error
+				errorMessage: '',
+				isLoading: false,
+				loadingText: '加载中...',
+				pollingInterval: null,
+				careNotifications: [{
+					id: 1,
+					avatar: '/static/icon_user.png',
+					name: '刘秀丽',
+					gender: '女',
+					age: 73,
+					message: '今天是刘秀丽奶奶的73周岁生日，祝她生日快乐吧'
 				}, {
-					title: '系统设置',
-					subtitle: '应用配置和系统参数',
-					icon: '/static/icon_robo.png'
-				}, {
-					title: '历史记录',
-					subtitle: '查看操作和使用历史',
-					icon: '/static/icon_chat.png'
-				}, {
-					title: '帮助中心',
-					subtitle: '使用说明和常见问题',
-					icon: '/static/icon_warning.png'
-				}, {
-					title: '关于应用',
-					subtitle: '版本信息和开发团队',
-					icon: '/static/icon_voice.png'
+					id: 2,
+					avatar: '/static/icon_user.png',
+					name: '李善良',
+					gender: '男',
+					age: 81,
+					message: '李爷爷最近经常提起小女儿，提醒家人常来看看吧'
 				}],
-				statistics: [{
-					number: '89%',
-					label: '系统使用率'
-				}, {
-					number: '24h',
-					label: '在线时长'
-				}, {
-					number: '5',
-					label: '活跃设备'
-				}, {
-					number: '100%',
-					label: '任务完成率'
-				}],
-				quickActions: [{
-					title: '重启系统',
-					icon: '/static/icon_robo.png'
-				}, {
-					title: '清理缓存',
-					icon: '/static/icon_safety.png'
-				}, {
-					title: '导出日志',
-					icon: '/static/icon_delivery.png'
-				}, {
-					title: '联系客服',
-					icon: '/static/icon_contact.png'
-				}]
+				personnelList: []
 			};
 		},
+		computed: {
+			filteredPersonnelList() {
+				console.log('[Debug] 计算属性被调用, searchText:', this.searchText);
+				console.log('[Debug] personnelList长度:', this.personnelList.length);
+				
+				if (!this.searchText) {
+					console.log('[Debug] 无搜索条件，返回全部数据');
+					return this.personnelList;
+				}
+				const filtered = this.personnelList.filter(person => 
+					person.name.includes(this.searchText)
+				);
+				console.log('[Debug] 搜索结果长度:', filtered.length);
+				return filtered;
+			}
+		},
+		onLoad() {
+			this.fetchProfiles();
+		},
+		onUnload() {
+			if (this.pollingInterval) {
+				clearInterval(this.pollingInterval);
+			}
+		},
 		onShow() {
-			this.loadUserInfo();
+			// 每次显示页面时可以加载最新数据
+			console.log('[Debug] onShow 被调用, 当前personnelList长度:', this.personnelList.length);
+			if (this.personnelList.length === 0) {
+				console.log('[Debug] 数据为空，重新获取');
+				this.fetchProfiles();
+			} else {
+				console.log('[Debug] 数据已存在，不重新获取');
+			}
 		},
 		methods: {
-			loadUserInfo() {
-				// 模拟加载用户信息
-				// 这里可以从本地存储或云端获取真实用户数据
-				console.log('加载用户信息');
-			},
-			handleMenuClick(title) {
-				switch(title) {
-					case '个人设置':
-						uni.navigateTo({
-							url: '/pages/personalization/index'
-						});
-						break;
-					case '系统设置':
-						uni.showToast({
-							title: '系统设置功能开发中',
-							icon: 'none'
-						});
-						break;
-					case '历史记录':
-						this.showHistory();
-						break;
-					case '帮助中心':
-						this.showHelp();
-						break;
-					case '关于应用':
-						this.showAbout();
-						break;
-					default:
-						uni.showToast({
-							title: `${title}功能开发中`,
-							icon: 'none'
-						});
+			async executeCommand(task, params = {}, loadingText = '处理中...') {
+				this.isLoading = true;
+				this.loadingText = loadingText;
+
+				if (this.pollingInterval) {
+					clearInterval(this.pollingInterval);
 				}
-			},
-			handleActionClick(title) {
-				switch(title) {
-					case '重启系统':
-						uni.showModal({
-							title: '确认重启',
-							content: '确定要重启系统吗？这将中断当前所有操作。',
-							success: (res) => {
-								if (res.confirm) {
-									uni.showToast({
-										title: '重启指令已发送',
-										icon: 'success'
-									});
+
+				try {
+					const postRes = await uniCloud.callFunction({
+						name: 'postCommand',
+						data: { task, params }
+					});
+
+					if (!postRes.result.success) {
+						throw new Error(postRes.result.errMsg || '提交指令失败');
+					}
+					const commandId = postRes.result.commandId;
+
+					return new Promise((resolve, reject) => {
+						const timeout = setTimeout(() => {
+							clearInterval(this.pollingInterval);
+							this.isLoading = false;
+							reject(new Error('请求超时，请稍后重试'));
+						}, 20000);
+
+						this.pollingInterval = setInterval(async () => {
+							try {
+								const resultRes = await uniCloud.callFunction({
+									name: 'getCommandResult',
+									data: { commandId }
+								});
+
+								if (resultRes.result.success && resultRes.result.command) {
+									const command = resultRes.result.command;
+									if (command.status === 'completed') {
+										clearInterval(this.pollingInterval);
+										clearTimeout(timeout);
+										this.isLoading = false;
+										resolve(command.result);
+									} else if (command.status === 'failed') {
+										clearInterval(this.pollingInterval);
+										clearTimeout(timeout);
+										this.isLoading = false;
+										reject(new Error(command.error_message || '任务执行失败'));
+									}
+								} else if (!resultRes.result.success) {
+									throw new Error(resultRes.result.errMsg || '查询结果失败');
 								}
+							} catch (pollError) {
+								clearInterval(this.pollingInterval);
+								clearTimeout(timeout);
+								this.isLoading = false;
+								reject(pollError);
 							}
-						});
-						break;
-					case '清理缓存':
-						uni.showLoading({
-							title: '清理中...'
-						});
-						setTimeout(() => {
-							uni.hideLoading();
-							uni.showToast({
-								title: '缓存清理完成',
-								icon: 'success'
-							});
 						}, 2000);
-						break;
-					case '导出日志':
-						uni.showToast({
-							title: '日志导出功能开发中',
-							icon: 'none'
-						});
-						break;
-					case '联系客服':
-						uni.showModal({
-							title: '联系客服',
-							content: '客服电话：400-123-4567\n工作时间：9:00-18:00',
-							showCancel: false
-						});
-						break;
-					default:
-						uni.showToast({
-							title: `${title}功能开发中`,
-							icon: 'none'
-						});
+					});
+				} catch (error) {
+					this.isLoading = false;
+					uni.showToast({ title: error.message, icon: 'none' });
+					return Promise.reject(error);
 				}
 			},
-			showHistory() {
-				const histories = [
-					'2小时前 - 执行安防巡逻',
-					'4小时前 - 语音交互',
-					'昨天 - 添加新点位',
-					'昨天 - 物品配送完成',
-					'2天前 - 系统状态检查'
-				];
-				
-				uni.showModal({
-					title: '最近操作历史',
-					content: histories.join('\n'),
-					showCancel: false
+
+			async fetchProfiles() {
+				this.status = 'loading';
+				try {
+					console.log('[Debug] 开始获取人员档案...');
+					const result = await this.executeCommand('get_profiles_config', {}, '正在获取人员档案...');
+					console.log('[Debug] 后端返回的原始数据:', result);
+					
+					if (result && result.profiles) {
+						console.log('[Debug] 档案数据数组:', result.profiles);
+						console.log('[Debug] 档案数量:', result.profiles.length);
+						
+						this.personnelList = result.profiles;
+						this.status = 'success';
+						
+						console.log('[Debug] 设置后的personnelList:', this.personnelList);
+						console.log('[Debug] 设置后的状态:', this.status);
+						console.log('成功加载', this.personnelList.length, '个人员档案');
+						
+						// 强制触发视图更新
+						this.$forceUpdate();
+					} else {
+						console.error('[Debug] 后端返回数据格式错误:', result);
+						throw new Error('未能获取到人员档案数据');
+					}
+				} catch (err) {
+					this.status = 'error';
+					this.errorMessage = err.message;
+					console.error('fetchProfiles error:', err);
+					console.error('[Debug] 错误详情:', err);
+				}
+			},
+
+			getPersonDetails(person) {
+				// 根据档案数据生成显示的详情
+				let details = [];
+				if (person.age) details.push(person.age + '岁');
+				if (person.occupation) details.push(person.occupation);
+				if (person.hometown) details.push(person.hometown);
+				return details.length > 0 ? details.join(' ') : '点击查看详情';
+			},
+			loadPersonnelData() {
+				// 在新的实现中，这个方法由fetchProfiles替代
+				console.log('加载人员数据 - 使用fetchProfiles代替');
+			},
+			goToFaceRegister() {
+				uni.navigateTo({
+					url: '/pages/face_entry/index'
 				});
 			},
-			showHelp() {
-				const helpContent = [
-					'1. 点击底部机器人图标返回主界面',
-					'2. 使用语音功能与机器人对话',
-					'3. 在点位设置中管理机器人位置',
-					'4. 通过安防巡逻设置巡检路线',
-					'5. 如遇问题请联系客服'
-				];
-				
-				uni.showModal({
-					title: '使用帮助',
-					content: helpContent.join('\n'),
-					showCancel: false
+			handlePersonClick(person) {
+				// 显示人员详情并支持编辑
+				this.showPersonDetail(person);
+			},
+
+			showPersonDetail(person) {
+				// 构建详情内容
+				let content = `姓名: ${person.name}\n`;
+				if (person.age) content += `年龄: ${person.age}\n`;
+				if (person.occupation) content += `职业: ${person.occupation}\n`;
+				if (person.hometown) content += `家乡: ${person.hometown}\n`;
+				if (person.personality) content += `性格: ${person.personality}\n`;
+				if (person.hobbies && person.hobbies.length > 0) content += `爱好: ${person.hobbies.join(', ')}\n`;
+				if (person.favorite_foods && person.favorite_foods.length > 0) content += `喜爱食物: ${person.favorite_foods.join(', ')}\n`;
+				if (person.habits && person.habits.length > 0) content += `习惯: ${person.habits.join(', ')}\n`;
+				if (person.mood) content += `心情: ${person.mood}\n`;
+
+				uni.showActionSheet({
+					itemList: ['查看详情', '编辑档案'],
+					success: (res) => {
+						if (res.tapIndex === 0) {
+							// 查看详情
+							uni.showModal({
+								title: '人员详情',
+								content: content,
+								showCancel: false,
+								confirmText: '确定'
+							});
+						} else if (res.tapIndex === 1) {
+							// 编辑档案
+							this.editPersonProfile(person);
+						}
+					}
 				});
 			},
-			showAbout() {
+
+			editPersonProfile(person) {
+				// 简单的编辑实现 - 可以根据需要扩展为完整的编辑页面
+				const fields = [
+					{ key: 'name', label: '姓名', value: person.name },
+					{ key: 'age', label: '年龄', value: person.age },
+					{ key: 'occupation', label: '职业', value: person.occupation },
+					{ key: 'hometown', label: '家乡', value: person.hometown },
+					{ key: 'personality', label: '性格', value: person.personality },
+					{ key: 'mood', label: '心情', value: person.mood }
+				];
+
+				this.showEditDialog(person, fields, 0);
+			},
+
+			showEditDialog(person, fields, index) {
+				if (index >= fields.length) {
+					// 所有字段编辑完成，保存到云端
+					this.savePersonProfile(person);
+					return;
+				}
+
+				const field = fields[index];
 				uni.showModal({
-					title: '关于Haven App',
-					content: '版本：v1.0.0\n开发团队：Haven Tech\n更新时间：2024年7月\n\n智能机器人控制系统',
-					showCancel: false
+					title: `编辑${field.label}`,
+					content: `当前${field.label}: ${field.value || '(空)'}`,
+					editable: true,
+					placeholderText: field.value || `请输入${field.label}`,
+					success: (res) => {
+						if (res.confirm && res.content.trim()) {
+							person[field.key] = res.content.trim();
+						}
+						// 继续编辑下一个字段
+						this.showEditDialog(person, fields, index + 1);
+					},
+					fail: () => {
+						// 用户取消，继续下一个字段
+						this.showEditDialog(person, fields, index + 1);
+					}
 				});
+			},
+
+			async savePersonProfile(person) {
+				try {
+					await this.executeCommand(
+						'update_profile', 
+						{ 
+							profile_id: person.profile_id,
+							profile_data: person
+						}, 
+						`正在保存 ${person.name} 的档案...`
+					);
+					
+					uni.showToast({ title: '保存成功', icon: 'success' });
+					
+					// 更新本地列表
+					const index = this.personnelList.findIndex(p => p.profile_id === person.profile_id);
+					if (index !== -1) {
+						this.personnelList[index] = { ...person };
+					}
+
+				} catch (err) {
+					uni.showToast({ title: `保存失败: ${err.message}`, icon: 'none' });
+					console.error('savePersonProfile error:', err);
+				}
+			},
+			acknowledgeNotification(notificationId) {
+				// 处理"我已知晓"按钮点击
+				this.careNotifications = this.careNotifications.filter(item => item.id !== notificationId);
+				uni.showToast({
+					title: '已确认',
+					icon: 'success'
+				});
+			},
+			handleSearch() {
+				// 搜索功能，通过计算属性filteredPersonnelList实现
+				console.log('搜索:', this.searchText);
 			}
 		}
 	}
@@ -254,213 +366,242 @@
 	.page-container {
 		display: flex;
 		flex-direction: column;
-		background-image: url('/static/background.png');
-		background-size: cover;
-		background-repeat: no-repeat;
-		background-position: center;
-		min-height: 100vh;
-		padding-bottom: 30rpx; /* 减少padding，原生TabBar会自动处理 */
+		height: 100vh;
+		background-color: #F7F7F7;
 	}
 
-	/* 顶部用户信息区 */
-	.top-user-section {
-		display: flex;
-		padding: 40rpx;
-		align-items: center;
-		background-color: rgba(255, 255, 255, 0.1);
-		margin: 20rpx;
-		border-radius: 20rpx;
+	.scroll-content {
+		flex: 1;
+		overflow-y: auto;
+		padding-bottom: 30rpx; /* 适配原生TabBar */
 	}
-	.user-avatar {
-		width: 120rpx;
+
+	/* 自定义导航栏 */
+	.custom-nav-bar {
+		display: flex;
+		align-items: flex-end;
+		padding: 20rpx 40rpx;
 		height: 120rpx;
-		border-radius: 60rpx;
-		background-color: rgba(255, 255, 255, 0.3);
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		margin-right: 30rpx;
-	}
-	.avatar-image {
-		width: 80rpx;
-		height: 80rpx;
-	}
-	.user-info-container {
-		flex: 1;
-	}
-	.user-name {
-		font-size: 36rpx;
-		font-weight: bold;
-		color: #000000;
-		display: block;
-		margin-bottom: 10rpx;
-	}
-	.user-role {
-		font-size: 26rpx;
-		color: #666;
-		display: block;
-		margin-bottom: 20rpx;
-	}
-	.user-stats {
-		display: flex;
-		gap: 40rpx;
-	}
-	.stat-item {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-	}
-	.stat-number {
-		font-size: 32rpx;
-		font-weight: bold;
-		color: #28a745;
-	}
-	.stat-label {
-		font-size: 20rpx;
-		color: #999;
-		margin-top: 5rpx;
+		padding-top: var(--status-bar-height);
+		background-color: transparent;
 	}
 
-	/* 功能菜单区 */
-	.menu-section {
-		padding: 0 40rpx;
-		margin-top: 20rpx;
-	}
-	.section-title {
+	.nav-title {
 		font-size: 36rpx;
 		font-weight: bold;
-		margin-bottom: 20rpx;
 		color: #000000;
 	}
-	.menu-list {
-		background-color: rgba(255, 255, 255, 0.9);
+
+	/* 关怀通知 */
+	.care-section {
+		background: linear-gradient(180deg, #63D8A2 0%, #90E5B4 100%);
+		padding: 30rpx 40rpx;
+		border-bottom-left-radius: 40rpx;
+		border-bottom-right-radius: 40rpx;
+	}
+
+	.care-title {
+		font-size: 40rpx;
+		font-weight: bold;
+		color: #FFFFFF;
+		margin-bottom: 30rpx;
+		display: block;
+	}
+
+	.notification-cards {
+		display: flex;
+		justify-content: space-between;
+		gap: 20rpx;
+	}
+
+	.notification-card {
+		background-color: rgba(255, 255, 255, 0.8);
 		border-radius: 20rpx;
-		overflow: hidden;
-	}
-	.menu-item {
-		display: flex;
-		align-items: center;
-		padding: 30rpx;
-		border-bottom: 1rpx solid #f0f0f0;
-	}
-	.menu-item:last-child {
-		border-bottom: none;
-	}
-	.menu-icon {
-		width: 80rpx;
-		height: 80rpx;
-		margin-right: 30rpx;
-	}
-	.menu-icon-image {
-		width: 100%;
-		height: 100%;
-	}
-	.menu-content {
-		flex: 1;
-	}
-	.menu-title {
-		font-size: 32rpx;
-		font-weight: bold;
-		color: #333;
-		display: block;
-		margin-bottom: 8rpx;
-	}
-	.menu-subtitle {
-		font-size: 24rpx;
-		color: #999;
-	}
-	.menu-arrow {
-		font-size: 32rpx;
-		color: #ccc;
+		padding: 20rpx;
+		width: 48%;
+		box-sizing: border-box;
 	}
 
-	/* 使用统计区 */
-	.statistics-section {
-		padding: 0 40rpx;
-		margin-top: 30rpx;
-	}
-	.stats-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 20rpx;
-	}
-	.stats-card {
-		background-color: rgba(255, 255, 255, 0.9);
-		border-radius: 15rpx;
-		padding: 30rpx;
-		text-align: center;
-	}
-	.stats-number {
-		font-size: 48rpx;
-		font-weight: bold;
-		color: #007bff;
-		display: block;
-		margin-bottom: 10rpx;
-	}
-	.stats-label {
-		font-size: 24rpx;
-		color: #666;
-	}
-
-	/* 快速操作区 */
-	.quick-actions-section {
-		padding: 0 40rpx;
-		margin-top: 30rpx;
-	}
-	.actions-grid {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: 20rpx;
-	}
-	.action-button {
-		background-color: rgba(255, 255, 255, 0.9);
-		border-radius: 15rpx;
-		padding: 25rpx;
+	.card-header {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
-		text-align: center;
-	}
-	.action-icon {
-		width: 60rpx;
-		height: 60rpx;
 		margin-bottom: 15rpx;
 	}
-	.action-text {
-		font-size: 22rpx;
-		color: #333;
+
+	.avatar {
+		width: 80rpx;
+		height: 80rpx;
+		border-radius: 50%;
+		margin-right: 20rpx;
 	}
 
-	/* 底部导航栏 */
-	.bottom-nav-bar {
-		position: fixed;
-		z-index: 100;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		display: flex;
-		justify-content: space-around;
-		align-items: center;
-		height: 120rpx;
-		background-color: #FFFFFF;
-		border-top-left-radius: 40rpx;
-		border-top-right-radius: 40rpx;
-		box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05);
-	}
-	.nav-item {
+	.info {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.name {
+		font-size: 30rpx;
+		font-weight: bold;
+	}
+
+	.details {
+		font-size: 24rpx;
+		color: #666;
+	}
+
+	.message {
+		font-size: 26rpx;
+		color: #333;
+		line-height: 1.4;
+		display: block;
+		margin-bottom: 20rpx;
+	}
+
+	.ack-button {
+		background-color: #28a745;
+		color: #FFFFFF;
+		font-size: 24rpx;
+		border-radius: 30rpx;
+		padding: 10rpx 0;
+		text-align: center;
+		width: 80%;
+		margin: 0 auto;
+	}
+
+	/* 人员档案 */
+	.personnel-section {
+		padding: 40rpx;
+	}
+
+	.personnel-header {
+		display: flex;
+		justify-content: space-between;
 		align-items: center;
+		margin-bottom: 30rpx;
+	}
+
+	.personnel-title {
+		font-size: 36rpx;
+		font-weight: bold;
+	}
+
+	.header-right {
+		display: flex;
+		align-items: center;
+		gap: 20rpx;
+	}
+
+	.face-register-button {
+		background-color: #007AFF;
+		color: #FFFFFF;
+		font-size: 24rpx;
+		border-radius: 30rpx;
+		padding: 8rpx 20rpx;
+		height: auto;
+		line-height: normal;
+	}
+
+	.search-bar {
+		position: relative;
+		width: 200rpx;
+	}
+
+	.search-input {
+		background-color: #FFFFFF;
+		border-radius: 30rpx;
+		padding: 10rpx 20rpx;
+		font-size: 26rpx;
+		text-align: center;
+	}
+
+	.personnel-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 25rpx;
+	}
+
+	.personnel-card {
+		background-color: #FFFFFF;
+		border-radius: 20rpx;
+		padding: 20rpx;
+		display: flex;
+		align-items: center;
+	}
+
+	.person-avatar {
+		width: 90rpx;
+		height: 90rpx;
+		border-radius: 50%;
+		margin-right: 20rpx;
+	}
+
+	.person-info {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.person-name {
+		font-size: 30rpx;
+		font-weight: bold;
+	}
+
+	.person-details {
+		font-size: 24rpx;
+		color: #666;
+	}
+
+	/* 加载动画样式 */
+	.loading-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.5);
+		display: flex;
+		flex-direction: column;
 		justify-content: center;
-		flex: 1;
+		align-items: center;
+		z-index: 1000;
 	}
-	.nav-icon-image {
-		width: 50rpx;
-		height: 50rpx;
+	.loading-spinner {
+		border: 4px solid #f3f3f3;
+		border-top: 4px solid #3498db;
+		border-radius: 50%;
+		width: 40px;
+		height: 40px;
+		animation: spin 1s linear infinite;
 	}
-	.nav-item.active .nav-icon-image {
-		transform: translateY(-10rpx);
-		width: 70rpx;
-		height: 70rpx;
+	.loading-text {
+		color: white;
+		margin-top: 15px;
+		font-size: 16px;
+	}
+	@keyframes spin {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
+	}
+
+	/* 错误状态 */
+	.status-handler {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		padding-top: 200rpx;
+		z-index: 1;
+	}
+	.error-message {
+		color: #dd524d;
+		margin-bottom: 40rpx;
+		text-align: center;
+	}
+	.retry-button {
+		width: 300rpx;
+		background-color: #007AFF;
+		color: white;
+		border-radius: 30rpx;
+		padding: 15rpx 30rpx;
 	}
 </style>

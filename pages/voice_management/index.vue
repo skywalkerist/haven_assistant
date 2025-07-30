@@ -6,31 +6,48 @@
 			<text class="loading-text">{{ loadingText }}</text>
 		</view>
 
+		<!-- 1. 自定义导航栏 -->
+		<view class="custom-nav-bar">
+			<text class="back-arrow" @click="goBack">&lt;</text>
+			<text class="nav-title">音色管理</text>
+		</view>
+
 		<!-- 错误状态 -->
 		<view v-if="status === 'error'" class="status-handler">
 			<text class="error-message">{{ errorMessage }}</text>
 			<button class="retry-button" @click="fetchVoices">点击重试</button>
 		</view>
 
-		<!-- 主内容区 -->
-		<view v-else class="content">
+		<!-- 2. 音色列表 -->
+		<view v-else class="voice-list-section">
 			<view class="tip">
-				<text>轻点卡片，即可选择您喜欢的默认音色</text>
+				<text>轻点卡片选择默认音色，长按可进行编辑操作</text>
 			</view>
 			
 			<view class="voice-grid">
 				<view 
-					v-for="voice in voiceList" 
-					:key="voice.name" 
+					v-for="(voice, index) in voiceList" 
+					:key="voice.name || index" 
 					class="voice-card"
 					:class="{ 'is-default': voice.isDefault }"
-					@click="selectVoice(voice)">
+					@click="selectVoice(voice)"
+					@longpress="showVoiceActions(voice, index)">
 					
 					<view v-if="voice.isDefault" class="default-badge">默认</view>
 					
-					<text class="voice-name">{{ voice.name }}</text>
+					<image src="/static/icon_speak.png" class="voice-icon" mode="aspectFit"></image>
+					<view class="voice-info">
+						<text class="voice-name">{{ voice.name }}</text>
+						<text v-if="voice.relation" class="voice-details">{{ voice.relation }} {{ voice.age }}岁</text>
+						<text v-else-if="!voice.isDefault" class="voice-details">自定义音色</text>
+					</view>
 				</view>
 			</view>
+		</view>
+
+		<!-- 3. 添加音色按钮 -->
+		<view class="add-voice-button-container">
+			<button class="add-voice-button" @click="addVoice">添加音色</button>
 		</view>
 	</view>
 </template>
@@ -50,12 +67,29 @@
 		onLoad() {
 			this.fetchVoices();
 		},
+		onShow() {
+			// 页面显示时，检查是否有新录入的音色
+			const newVoice = uni.getStorageSync('newly_added_voice');
+			if (newVoice) {
+				// 检查是否已存在相同ID的音色
+				const exists = this.voiceList.some(v => v.name === newVoice.name);
+				if (!exists) {
+					this.voiceList.push(newVoice);
+				}
+				// 清除缓存，防止下次进入时重复添加
+				uni.removeStorageSync('newly_added_voice');
+			}
+		},
 		onUnload() {
 			if (this.pollingInterval) {
 				clearInterval(this.pollingInterval);
 			}
 		},
 		methods: {
+			goBack() {
+				uni.navigateBack();
+			},
+			
 			async executeCommand(task, params = {}, loadingText = '处理中...') {
 				this.isLoading = true;
 				this.loadingText = loadingText;
@@ -137,13 +171,16 @@
 							}
 						}
 
-						// 转换数据结构用于渲染
+						// 转换数据结构用于渲染，添加更多信息
 						this.voiceList = Object.keys(config)
 							.filter(key => key !== 'default')
 							.map(name => ({
 								name: name,
 								res_id: config[name],
-								isDefault: name === defaultVoiceName
+								isDefault: name === defaultVoiceName,
+								// 可以根据名称推断关系和年龄，或从其他地方获取
+								relation: this.getVoiceRelation(name),
+								age: this.getVoiceAge(name)
 							}));
 							
 						this.status = 'success';
@@ -155,6 +192,21 @@
 					this.errorMessage = err.message;
 					console.error('fetchVoices error:', err);
 				}
+			},
+
+			// 辅助方法：根据音色名称推断关系
+			getVoiceRelation(name) {
+				// 这里可以根据业务逻辑推断或从其他数据源获取
+				if (name.includes('女儿')) return '女儿';
+				if (name.includes('儿子')) return '儿子';
+				if (name.includes('老伴')) return '老伴';
+				return null;
+			},
+
+			// 辅助方法：根据音色名称推断年龄
+			getVoiceAge(name) {
+				// 这里可以根据业务逻辑推断或从其他数据源获取
+				return null; // 暂时返回null，可根据需要实现
 			},
 
 			async selectVoice(voice) {
@@ -180,36 +232,158 @@
 					uni.showToast({ title: `设置失败: ${err.message}`, icon: 'none' });
 					console.error('selectVoice error:', err);
 				}
+			},
+
+			addVoice() {
+				uni.navigateTo({
+					url: '/pages/voice_cloning/index'
+				});
+			},
+
+			showVoiceActions(voice, index) {
+				if (voice.isDefault) {
+					uni.showToast({
+						title: '默认音色无法编辑',
+						icon: 'none'
+					});
+					return;
+				}
+
+				uni.showActionSheet({
+					itemList: ['重命名', '删除'],
+					success: (res) => {
+						if (res.tapIndex === 0) {
+							this.renameVoice(voice, index);
+						} else if (res.tapIndex === 1) {
+							this.deleteVoice(voice, index);
+						}
+					}
+				});
+			},
+
+			renameVoice(voice, index) {
+				uni.showModal({
+					title: '重命名音色',
+					content: `为 "${voice.name}" 输入新名称`,
+					editable: true,
+					placeholderText: voice.name,
+					success: (res) => {
+						if (res.confirm) {
+							const newName = res.content.trim();
+							if (newName && newName !== voice.name) {
+								// 更新本地显示
+								this.voiceList[index].name = newName;
+								// 这里可以添加云端更新逻辑
+								uni.showToast({
+									title: '重命名成功',
+									icon: 'success'
+								});
+							} else if (!newName) {
+								uni.showToast({
+									title: '名称不能为空',
+									icon: 'none'
+								});
+							}
+						}
+					}
+				});
+			},
+
+			deleteVoice(voice, index) {
+				uni.showModal({
+					title: '确认删除',
+					content: `您确定要删除音色 "${voice.name}" 吗？`,
+					success: (res) => {
+						if (res.confirm) {
+							// 删除本地显示
+							this.voiceList.splice(index, 1);
+							// 这里可以添加云端删除逻辑
+							uni.showToast({
+								title: '删除成功',
+								icon: 'success'
+							});
+						}
+					}
+				});
 			}
 		}
 	}
 </script>
 
-<style scoped>
+<style>
 	.page-container {
-		padding: 30rpx;
-		background-color: #f7f8fa;
+		display: flex;
+		flex-direction: column;
 		min-height: 100vh;
+		color: #333;
+		position: relative;
+		padding-bottom: 180rpx; /* 为底部固定按钮留出空间 */
 	}
+
+	/* 自定义导航栏 */
+	.custom-nav-bar {
+		position: relative;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 90rpx;
+		padding-top: var(--status-bar-height);
+		z-index: 1;
+	}
+
+	.back-arrow {
+		position: absolute;
+		left: 40rpx;
+		top: 50%;
+		transform: translateY(-50%);
+		font-size: 48rpx;
+		font-weight: bold;
+		color: #000000;
+	}
+
+	.nav-title {
+		font-size: 36rpx;
+		font-weight: bold;
+		color: #000000;
+	}
+
+	/* 错误状态 */
 	.status-handler {
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
 		padding-top: 200rpx;
+		z-index: 1;
 	}
 	.error-message {
 		color: #dd524d;
 		margin-bottom: 40rpx;
+		text-align: center;
 	}
 	.retry-button {
 		width: 300rpx;
+		background-color: #007AFF;
+		color: white;
+		border-radius: 30rpx;
+		padding: 15rpx 30rpx;
 	}
+
+	/* 音色列表 */
+	.voice-list-section {
+		flex: 1;
+		padding: 40rpx;
+		z-index: 1;
+	}
+
 	.tip {
 		font-size: 28rpx;
 		color: #666;
 		margin-bottom: 40rpx;
 		text-align: center;
+		background-color: rgba(255, 255, 255, 0.8);
+		padding: 20rpx;
+		border-radius: 15rpx;
 	}
 	
 	.voice-grid {
@@ -217,31 +391,51 @@
 		grid-template-columns: repeat(2, 1fr);
 		gap: 30rpx;
 	}
-	
+
 	.voice-card {
 		position: relative;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		height: 180rpx;
-		background-color: #ffffff;
+		background-color: #FFFFFF;
 		border-radius: 20rpx;
-		box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+		padding: 30rpx;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 15rpx;
+		box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.08);
 		border: 4rpx solid transparent;
 		transition: all 0.2s ease-in-out;
+		min-height: 160rpx;
 	}
 	
 	.voice-card.is-default {
 		border-color: #007AFF;
 		box-shadow: 0 8rpx 20rpx rgba(0, 122, 255, 0.2);
 	}
-	
+
+	.voice-icon {
+		width: 50rpx;
+		height: 50rpx;
+		margin-bottom: 10rpx;
+	}
+
+	.voice-info {
+		display: flex;
+		flex-direction: column;
+		gap: 5rpx;
+		flex: 1;
+	}
+
 	.voice-name {
-		font-size: 36rpx;
-		font-weight: 500;
+		font-size: 32rpx;
+		font-weight: bold;
 		color: #333;
 	}
-	
+
+	.voice-details {
+		font-size: 24rpx;
+		color: #999;
+	}
+
 	.default-badge {
 		position: absolute;
 		top: 0;
@@ -252,6 +446,30 @@
 		border-top-right-radius: 20rpx;
 		border-bottom-left-radius: 20rpx;
 		font-size: 22rpx;
+	}
+
+	/* 添加音色按钮 */
+	.add-voice-button-container {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		padding: 40rpx;
+		background-color: transparent;
+		z-index: 100;
+		padding-bottom: calc(40rpx + var(--safe-area-inset-bottom));
+	}
+
+	.add-voice-button {
+		background-color: #28a745;
+		color: #FFFFFF;
+		font-size: 36rpx;
+		font-weight: bold;
+		border-radius: 50rpx;
+		height: 100rpx;
+		line-height: 100rpx;
+		text-align: center;
+		width: 100%;
 	}
 
 	/* 加载动画样式 */

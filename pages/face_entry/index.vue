@@ -6,6 +6,13 @@
 			<text class="loading-text">{{ loadingText }}</text>
 		</view>
 
+		<!-- 1. 自定义导航栏 -->
+		<view class="custom-nav-bar">
+			<text class="back-arrow" @click="goBack">&lt;</text>
+			<text class="nav-title">人脸录入</text>
+		</view>
+
+		<!-- 2. 内容区域 -->
 		<view class="content-wrapper">
 			<text class="title">请面对摄像头，输入人员姓名</text>
 			<input class="name-input" type="text" v-model="name" placeholder="在此输入姓名" />
@@ -31,6 +38,10 @@
 			}
 		},
 		methods: {
+			goBack() {
+				uni.navigateBack();
+			},
+
 			async startRegistration() {
 				if (!this.name.trim()) {
 					uni.showToast({
@@ -124,27 +135,58 @@
 	}
 </script>
 
-<style>
+<style lang="scss">
 	.page-container {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		padding-top: 80rpx;
-		background-color: #f8f8f8;
 		min-height: 100vh;
+		/* background is now handled globally in App.vue */
 	}
+
+	/* 自定义导航栏 */
+	.custom-nav-bar {
+		position: relative;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 90rpx;
+		padding-top: var(--status-bar-height);
+		flex-shrink: 0;
+	}
+
+	.back-arrow {
+		position: absolute;
+		left: 40rpx;
+		font-size: 48rpx;
+		font-weight: bold;
+		color: #000000;
+	}
+
+	.nav-title {
+		font-size: 36rpx;
+		font-weight: bold;
+		color: #000000;
+	}
+
 	.content-wrapper {
+		flex: 1;
 		width: 80%;
+		margin: 0 auto;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		justify-content: center;
+		padding: 40rpx 0;
 	}
+
 	.title {
 		font-size: 36rpx;
 		font-weight: bold;
 		margin-bottom: 60rpx;
 		text-align: center;
+		color: #333;
 	}
+
 	.name-input {
 		width: 100%;
 		height: 100rpx;
@@ -155,7 +197,9 @@
 		text-align: center;
 		margin-bottom: 60rpx;
 		box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.05);
+		border: 1rpx solid #e0e0e0;
 	}
+
 	.action-button {
 		width: 100%;
 		height: 100rpx;
@@ -164,9 +208,10 @@
 		color: #FFFFFF;
 		background-color: #007aff;
 		border-radius: 50rpx;
+		font-weight: bold;
 	}
 	
-	/* 加载动画样式 (与点位设置页面相同) */
+	/* 加载动画样式 */
 	.loading-overlay {
 		position: fixed;
 		top: 0;
@@ -180,6 +225,7 @@
 		align-items: center;
 		z-index: 1000;
 	}
+
 	.loading-spinner {
 		border: 4px solid #f3f3f3;
 		border-top: 4px solid #3498db;
@@ -188,6 +234,7 @@
 		height: 40px;
 		animation: spin 1s linear infinite;
 	}
+
 	.loading-text {
 		color: white;
 		margin-top: 15px;
@@ -195,6 +242,7 @@
 		text-align: center;
 		white-space: pre-wrap; /* 支持换行 */
 	}
+
 	@keyframes spin {
 		0% { transform: rotate(0deg); }
 		100% { transform: rotate(360deg); }

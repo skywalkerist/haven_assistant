@@ -1,0 +1,73 @@
+# uni-app build output
+/unpackage/
+/dist/
+
+# Development files
+.hbuilderx/
+.vscode/
+.idea/
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# Cache files
+.cache/
+*.cache
+
+# Lock files
+package-lock.json
+yarn.lock
+
+# Build artifacts
+*.tgz
+*.tar.gz
+
+# uni-app specific
+manifest.json.bak
+pages.json.bak
+
+# Cloud function build files
+uniCloud-aliyun/cloudfunctions/*/node_modules/
+uniCloud-tcb/cloudfunctions/*/node_modules/
+
+# HBuilderX temp files
+.hbuilderx/

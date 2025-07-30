@@ -1,62 +1,68 @@
 <template>
 	<view class="page-container">
-		<!-- 全屏加载动画 -->
-		<view v-if="isLoading" class="loading-overlay">
-			<view class="loading-spinner"></view>
-			<text class="loading-text">{{ loadingText }}</text>
-		</view>
-		
-		<!-- 1. 顶部状态区 -->
-		<view class="top-status-section">
-			<view class="safety-illustration">
-				<image src="/static/icon_safety.png" mode="aspectFit" class="safety-image"></image>
+		<!-- 当前活跃警报 -->
+		<view class="active-alerts-section">
+			<text class="section-title">当前活跃警报</text>
+			<view v-if="activeAlerts.length === 0" class="empty-alerts">
+				<image src="/static/icon_safety.png" class="empty-icon" mode="aspectFit"></image>
+				<text class="empty-text">暂无活跃警报</text>
 			</view>
-			<view class="safety-info-container">
-				<text class="info-title">安全状态</text>
-				<view class="safety-info-card">
-					<view class="status-item" :class="systemStatus.class">
-						<text>系统状态: {{ systemStatus.text }}</text>
+			<view v-for="(alert, index) in activeAlerts" :key="alert.id" class="alert-card">
+				<view class="alert-header">
+					<view class="alert-type" :class="alert.type">
+						<text class="alert-type-text">{{ alert.typeText }}</text>
 					</view>
-					<view><text>最后检查: {{ lastCheckTime }}</text></view>
-					<view><text>在线设备: {{ onlineDevices }}/{{ totalDevices }}</text></view>
+					<text class="alert-time">{{ alert.time }}</text>
 				</view>
-				<button class="refresh-button" @click="refreshStatus">刷新状态</button>
+				
+				<text class="alert-description">{{ alert.description }}</text>
+				
+				<!-- 机器人信息 -->
+				<view class="robot-info">
+					<view class="robot-detail">
+						<text class="robot-label">机器人型号:</text>
+						<text class="robot-value">{{ alert.robot.model }}</text>
+					</view>
+					<view class="robot-detail">
+						<text class="robot-label">设备编号:</text>
+						<text class="robot-value">{{ alert.robot.id }}</text>
+					</view>
+					<view class="robot-detail">
+						<text class="robot-label">电量:</text>
+						<text class="robot-value">{{ alert.robot.battery }}%</text>
+					</view>
+				</view>
+				
+				<!-- 位置信息 -->
+				<view class="location-info">
+					<text class="location-text">{{ alert.location.building }} {{ alert.location.floor }} {{ alert.location.room }}</text>
+				</view>
+				
+				<!-- 操作按钮 -->
+				<view class="alert-actions">
+					<button class="action-btn secondary" @click="viewMonitoring(alert)">查看监控</button>
+					<button class="action-btn primary" @click="markCompleted(alert)">标记完成</button>
+				</view>
 			</view>
 		</view>
 
-		<!-- 2. 安全功能区 -->
-		<view class="safety-functions-section">
-			<text class="section-title">安全功能</text>
-			<view class="function-grid">
-				<view class="function-card" v-for="(func, index) in safetyFunctions" :key="index" @click="handleFunctionClick(func.title)">
-					<view class="card-text">
-						<text class="card-title">{{ func.title }}</text>
-						<text class="card-subtitle">{{ func.subtitle }}</text>
-					</view>
-					<view class="card-icon">
-						<image :src="func.icon" class="card-icon-image" mode="aspectFit"></image>
-					</view>
-				</view>
+		<!-- 历史警报 -->
+		<view class="history-section">
+			<view class="history-header">
+				<text class="section-title">历史警报</text>
+				<button class="clear-btn" @click="clearHistory">清空历史</button>
 			</view>
-		</view>
-
-		<!-- 3. 报警记录区 -->
-		<view class="alert-history-section">
-			<view class="alert-header">
-				<text class="section-title">报警记录</text>
-				<button class="clear-button" @click="clearAlerts">清空</button>
-			</view>
-			<scroll-view scroll-y class="alert-list">
-				<view v-if="alerts.length === 0" class="empty-alerts">
-					<text>暂无报警记录</text>
+			<scroll-view scroll-y class="history-list">
+				<view v-if="historyAlerts.length === 0" class="empty-history">
+					<text>暂无历史记录</text>
 				</view>
-				<view v-for="(alert, index) in alerts" :key="index" class="alert-item" :class="alert.level">
-					<view class="alert-content">
-						<text class="alert-title">{{ alert.title }}</text>
-						<text class="alert-time">{{ alert.time }}</text>
+				<view v-for="(alert, index) in historyAlerts" :key="alert.id" class="history-item">
+					<view class="history-main">
+						<text class="history-title">{{ alert.typeText }} - {{ alert.description }}</text>
+						<text class="history-time">{{ alert.completedTime }}</text>
 					</view>
-					<view class="alert-level">
-						<text>{{ alert.levelText }}</text>
+					<view class="history-status completed">
+						<text>已处理</text>
 					</view>
 				</view>
 			</scroll-view>
@@ -68,130 +74,109 @@
 	export default {
 		data() {
 			return {
-				isLoading: false,
-				loadingText: '加载中...',
-				systemStatus: {
-					text: '正常',
-					class: 'status-normal'
-				},
-				lastCheckTime: '刚刚',
-				onlineDevices: 1,
-				totalDevices: 1,
-				safetyFunctions: [{
-					title: '紧急呼叫',
-					subtitle: '一键求助 快速响应',
-					icon: '/static/icon_warning.png'
-				}, {
-					title: '视频监控',
-					subtitle: '实时画面 安全保障',
-					icon: '/static/icon_safety.png'
-				}, {
-					title: '环境监测',
-					subtitle: '温湿度检测 环境安全',
-					icon: '/static/icon_positon.png'
-				}, {
-					title: '设备检查',
-					subtitle: '设备状态 定期巡检',
-					icon: '/static/icon_robo.png'
-				}],
-				alerts: [
+				activeAlerts: [
 					{
-						title: '系统启动完成',
-						time: '2小时前',
-						level: 'info',
-						levelText: '信息'
+						id: 1,
+						type: 'fire',
+						typeText: '火情警报',
+						description: '检测到异常高温，疑似火情',
+						time: '13:25',
+						robot: {
+							model: 'Haven Guard Pro',
+							id: 'HGP-001',
+							battery: 87
+						},
+						location: {
+							building: '1号楼',
+							floor: '3楼',
+							room: '301室'
+						}
 					},
 					{
-						title: '定时巡检完成',
-						time: '1小时前',
-						level: 'success',
-						levelText: '正常'
+						id: 2,
+						type: 'fall',
+						typeText: '摔倒警报',
+						description: '检测到人员摔倒，需要紧急救援',
+						time: '12:58',
+						robot: {
+							model: 'Haven Care Plus',
+							id: 'HCP-002',
+							battery: 64
+						},
+						location: {
+							building: '2号楼',
+							floor: '1楼',
+							room: '大厅'
+						}
+					}
+				],
+				historyAlerts: [
+					{
+						id: 3,
+						typeText: '设备异常',
+						description: '摄像头连接中断',
+						completedTime: '今天 11:30'
+					},
+					{
+						id: 4,
+						typeText: '环境警报',
+						description: '湿度过高警报',
+						completedTime: '今天 10:15'
 					}
 				]
 			};
 		},
-		onShow() {
-			this.updateTime();
-			this.checkSystemStatus();
-		},
 		methods: {
-			refreshStatus() {
-				this.isLoading = true;
-				this.loadingText = '刷新状态中...';
-				
-				// 模拟刷新延迟
-				setTimeout(() => {
-					this.updateTime();
-					this.checkSystemStatus();
-					this.isLoading = false;
-					uni.showToast({
-						title: '状态已刷新',
-						icon: 'success'
-					});
-				}, 1500);
+			viewMonitoring(alert) {
+				uni.showToast({
+					title: `正在打开${alert.location.room}监控`,
+					icon: 'none'
+				});
 			},
-			updateTime() {
+			
+			markCompleted(alert) {
+				uni.showModal({
+					title: '确认处理',
+					content: `确认已处理"${alert.typeText}"警报？`,
+					success: (res) => {
+						if (res.confirm) {
+							// 移动到历史记录
+							const historyItem = {
+								id: alert.id,
+								typeText: alert.typeText,
+								description: alert.description,
+								completedTime: this.getCurrentTime()
+							};
+							this.historyAlerts.unshift(historyItem);
+							
+							// 从活跃警报中移除
+							this.activeAlerts = this.activeAlerts.filter(a => a.id !== alert.id);
+							
+							uni.showToast({
+								title: '警报已处理',
+								icon: 'success'
+							});
+						}
+					}
+				});
+			},
+			
+			getCurrentTime() {
 				const now = new Date();
 				const hours = now.getHours().toString().padStart(2, '0');
 				const minutes = now.getMinutes().toString().padStart(2, '0');
-				this.lastCheckTime = `${hours}:${minutes}`;
+				return `今天 ${hours}:${minutes}`;
 			},
-			checkSystemStatus() {
-				// 模拟系统状态检查
-				const statuses = [
-					{ text: '正常', class: 'status-normal' },
-					{ text: '正常', class: 'status-normal' },
-					{ text: '正常', class: 'status-normal' },
-					{ text: '注意', class: 'status-warning' }
-				];
-				this.systemStatus = statuses[Math.floor(Math.random() * statuses.length)];
-			},
-			handleFunctionClick(title) {
-				if (title === '紧急呼叫') {
-					uni.showModal({
-						title: '紧急呼叫',
-						content: '确定要发起紧急呼叫吗？',
-						success: (res) => {
-							if (res.confirm) {
-								this.addAlert('紧急呼叫已发起', 'warning', '紧急');
-								uni.showToast({
-									title: '紧急呼叫已发送',
-									icon: 'success'
-								});
-							}
-						}
-					});
-				} else if (title === '安防巡逻') {
-					uni.navigateTo({
-						url: '/pages/patrol/index'
-					});
-				} else {
-					uni.showToast({
-						title: `${title}功能开发中`,
-						icon: 'none'
-					});
-				}
-			},
-			addAlert(title, level, levelText) {
-				const now = new Date();
-				const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-				
-				this.alerts.unshift({
-					title,
-					time: timeStr,
-					level,
-					levelText
-				});
-			},
-			clearAlerts() {
+			
+			clearHistory() {
 				uni.showModal({
 					title: '确认清空',
-					content: '确定要清空所有报警记录吗？',
+					content: '确定要清空所有历史警报记录吗？',
 					success: (res) => {
 						if (res.confirm) {
-							this.alerts = [];
+							this.historyAlerts = [];
 							uni.showToast({
-								title: '记录已清空',
+								title: '历史记录已清空',
 								icon: 'success'
 							});
 						}
@@ -203,275 +188,243 @@
 </script>
 
 <style>
-	.loading-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-color: rgba(0, 0, 0, 0.5);
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		z-index: 1000;
-	}
-
-	.loading-spinner {
-		border: 4px solid #f3f3f3;
-		border-top: 4px solid #3498db;
-		border-radius: 50%;
-		width: 40px;
-		height: 40px;
-		animation: spin 1s linear infinite;
-	}
-
-	.loading-text {
-		color: white;
-		margin-top: 15px;
-		font-size: 16px;
-	}
-
-	@keyframes spin {
-		0% { transform: rotate(0deg); }
-		100% { transform: rotate(360deg); }
-	}
-
 	.page-container {
-		display: flex;
-		flex-direction: column;
-		background-image: url('/static/background.png');
-		background-size: cover;
-		background-repeat: no-repeat;
-		background-position: center;
+		background: linear-gradient(180deg, #FF6B6B 0%, #FFE66D 100%);
 		min-height: 100vh;
-		padding-bottom: 30rpx; /* 减少padding，原生TabBar会自动处理 */
-	}
-
-	/* 顶部状态区 */
-	.top-status-section {
-		display: flex;
-		padding: 40rpx 160rpx 40rpx 40rpx;
-		align-items: center;
-	}
-	.safety-illustration {
-		flex: 1.2;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-	}
-	.safety-image {
-		width: 320rpx;
-		height: 320rpx;
-	}
-	.safety-info-container {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
-		align-items: flex-start;
-	}
-	.info-title {
-		font-size: 32rpx;
-		font-weight: bold;
-		color: #000000;
-		margin-bottom: 10rpx;
-	}
-	.safety-info-card {
-		background-color: rgba(255, 255, 255, 0.5);
-		border-radius: 20rpx;
-		padding: 20rpx;
-		font-size: 26rpx;
-		color: #333;
-		width: 100%;
-	}
-	.status-item {
-		font-weight: bold;
-	}
-	.status-normal {
-		color: #28a745;
-	}
-	.status-warning {
-		color: #ffc107;
-	}
-	.status-error {
-		color: #dc3545;
-	}
-	.refresh-button {
-		margin-top: 20rpx;
-		background-color: #007bff;
-		color: #FFFFFF;
-		font-size: 32rpx;
-		font-weight: bold;
-		border-radius: 40rpx;
-		height: 80rpx;
-		line-height: 80rpx;
-		width: 100%;
-		text-align: center;
+		padding-bottom: 30rpx; /* 适配原生TabBar */
 	}
 
-	/* 安全功能区 */
-	.safety-functions-section {
-		padding: 0 40rpx;
-		margin-top: 20rpx;
+	/* 当前活跃警报 */
+	.active-alerts-section {
+		padding: 40rpx;
+		flex: 1;
 	}
+	
 	.section-title {
-		font-size: 36rpx;
-		font-weight: bold;
-		margin-bottom: 20rpx;
-		color: #000000;
-	}
-	.function-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 25rpx;
-	}
-	.function-card {
-		background-color: #F7F7F7;
-		border-radius: 20rpx;
-		padding: 30rpx;
-		height: 160rpx;
-		position: relative;
-		overflow: hidden;
-	}
-	.card-text {
-		display: flex;
-		flex-direction: column;
-		position: relative;
-		z-index: 2;
-	}
-	.card-title {
 		font-size: 32rpx;
 		font-weight: bold;
-		color: #333;
+		color: #FFFFFF;
+		margin-bottom: 30rpx;
 	}
-	.card-subtitle {
-		font-size: 22rpx;
-		color: #999;
-		margin-top: 8rpx;
-	}
-	.card-icon {
-		position: absolute;
-		bottom: -15rpx;
-		right: -15rpx;
-		width: 100rpx;
-		height: 100rpx;
-		z-index: 1;
-		opacity: 0.2;
-	}
-	.card-icon-image {
-		width: 100%;
-		height: 100%;
-	}
-
-	/* 报警记录区 */
-	.alert-history-section {
-		flex: 1;
-		margin: 30rpx 40rpx 0;
+	
+	.empty-alerts {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		height: 300rpx;
 		background-color: rgba(255, 255, 255, 0.9);
 		border-radius: 20rpx;
-		padding: 30rpx;
-		display: flex;
-		flex-direction: column;
 	}
+	
+	.empty-icon {
+		width: 120rpx;
+		height: 120rpx;
+		opacity: 0.5;
+		margin-bottom: 20rpx;
+	}
+	
+	.empty-text {
+		color: #999;
+		font-size: 28rpx;
+	}
+	
+	.alert-card {
+		background-color: #FFFFFF;
+		border-radius: 20rpx;
+		padding: 30rpx;
+		margin-bottom: 20rpx;
+		box-shadow: 0 8rpx 25rpx rgba(0,0,0,0.1);
+	}
+	
 	.alert-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 20rpx;
 	}
-	.clear-button {
-		background-color: #6c757d;
+	
+	.alert-type {
+		padding: 8rpx 20rpx;
+		border-radius: 20rpx;
+		font-size: 24rpx;
+		color: #FFFFFF;
+	}
+	
+	.alert-type.fire {
+		background-color: #FF4757;
+	}
+	
+	.alert-type.fall {
+		background-color: #FF6B35;
+	}
+	
+	.alert-type.security {
+		background-color: #5352ED;
+	}
+	
+	.alert-time {
+		font-size: 26rpx;
+		color: #666;
+	}
+	
+	.alert-description {
+		font-size: 30rpx;
+		color: #333;
+		margin-bottom: 25rpx;
+		font-weight: 500;
+	}
+	
+	/* 机器人信息 */
+	.robot-info {
+		background-color: #F8F9FA;
+		border-radius: 15rpx;
+		padding: 20rpx;
+		margin-bottom: 20rpx;
+	}
+	
+	.robot-detail {
+		display: flex;
+		justify-content: space-between;
+		margin-bottom: 10rpx;
+	}
+	
+	.robot-detail:last-child {
+		margin-bottom: 0;
+	}
+	
+	.robot-label {
+		font-size: 26rpx;
+		color: #666;
+	}
+	
+	.robot-value {
+		font-size: 26rpx;
+		color: #333;
+		font-weight: 500;
+	}
+	
+	/* 位置信息 */
+	.location-info {
+		background-color: #E3F2FD;
+		border-radius: 15rpx;
+		padding: 15rpx 20rpx;
+		margin-bottom: 25rpx;
+	}
+	
+	.location-text {
+		font-size: 28rpx;
+		color: #1976D2;
+		font-weight: 500;
+	}
+	
+	/* 操作按钮 */
+	.alert-actions {
+		display: flex;
+		gap: 20rpx;
+	}
+	
+	.action-btn {
+		flex: 1;
+		height: 80rpx;
+		border-radius: 40rpx;
+		font-size: 28rpx;
+		border: none;
+	}
+	
+	.action-btn.primary {
+		background-color: #4CAF50;
+		color: #FFFFFF;
+	}
+	
+	.action-btn.secondary {
+		background-color: #2196F3;
+		color: #FFFFFF;
+	}
+
+	/* 历史警报 */
+	.history-section {
+		background-color: rgba(255, 255, 255, 0.95);
+		margin: 20rpx 40rpx 0;
+		border-radius: 20rpx 20rpx 0 0;
+		padding: 30rpx;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+	}
+	
+	.history-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 20rpx;
+	}
+	
+	.history-header .section-title {
+		color: #333;
+		margin-bottom: 0;
+	}
+	
+	.clear-btn {
+		background-color: #6C757D;
 		color: #FFFFFF;
 		font-size: 24rpx;
 		padding: 8rpx 20rpx;
 		border-radius: 20rpx;
-		line-height: 1.5;
 		border: none;
 	}
-	.alert-list {
+	
+	.history-list {
 		flex: 1;
 		max-height: 400rpx;
 	}
-	.empty-alerts {
+	
+	.empty-history {
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		height: 200rpx;
 		color: #999;
+		font-size: 28rpx;
 	}
-	.alert-item {
+	
+	.history-item {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		padding: 20rpx;
 		margin-bottom: 15rpx;
+		background-color: #F8F9FA;
 		border-radius: 15rpx;
-		background-color: #f8f9fa;
 	}
-	.alert-item.info {
-		border-left: 5rpx solid #17a2b8;
-	}
-	.alert-item.success {
-		border-left: 5rpx solid #28a745;
-	}
-	.alert-item.warning {
-		border-left: 5rpx solid #ffc107;
-	}
-	.alert-item.error {
-		border-left: 5rpx solid #dc3545;
-	}
-	.alert-content {
-		display: flex;
-		flex-direction: column;
-	}
-	.alert-title {
-		font-size: 28rpx;
-		font-weight: bold;
-		color: #333;
-	}
-	.alert-time {
-		font-size: 22rpx;
-		color: #999;
-		margin-top: 5rpx;
-	}
-	.alert-level {
-		background-color: #e9ecef;
-		padding: 5rpx 15rpx;
-		border-radius: 15rpx;
-		font-size: 20rpx;
-		color: #6c757d;
-	}
-
-	/* 底部导航栏 */
-	.bottom-nav-bar {
-		position: fixed;
-		z-index: 100;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		display: flex;
-		justify-content: space-around;
-		align-items: center;
-		height: 120rpx;
-		background-color: #FFFFFF;
-		border-top-left-radius: 40rpx;
-		border-top-right-radius: 40rpx;
-		box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05);
-	}
-	.nav-item {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
+	
+	.history-main {
 		flex: 1;
+		display: flex;
+		flex-direction: column;
 	}
-	.nav-icon-image {
-		width: 50rpx;
-		height: 50rpx;
+	
+	.history-title {
+		font-size: 28rpx;
+		color: #333;
+		margin-bottom: 8rpx;
 	}
-	.nav-item.active .nav-icon-image {
-		transform: translateY(-10rpx);
-		width: 70rpx;
-		height: 70rpx;
+	
+	.history-time {
+		font-size: 24rpx;
+		color: #999;
+	}
+	
+	.history-status {
+		padding: 8rpx 15rpx;
+		border-radius: 15rpx;
+		font-size: 22rpx;
+	}
+	
+	.history-status.completed {
+		background-color: #D4EDDA;
+		color: #155724;
 	}
 </style>

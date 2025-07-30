@@ -90,12 +90,12 @@
 		z-index: 2;
 }
 .card-title {
-		font-size: 1rem;
+		font-size: 1.125rem;
 		font-weight: bold;
 		color: #333;
 }
 .card-subtitle {
-		font-size: 0.6875rem;
+		font-size: 0.8125rem;
 		color: #999;
 		margin-top: 0.25rem;
 }
@@ -103,10 +103,10 @@
 		position: absolute;
 		bottom: -0.46875rem;
 		right: -0.46875rem;
-		width: 3.125rem;
-		height: 3.125rem;
+		width: 3.75rem;
+		height: 3.75rem;
 		z-index: 1;
-		opacity: 0.2;
+		opacity: 1;
 }
 .card-icon-image {
 		width: 100%;

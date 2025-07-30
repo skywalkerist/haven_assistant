@@ -34,4 +34,11 @@
 
 <style>
 	/*每个页面公共css */
+	page {
+		background-image: url('/static/background.png');
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-position: center;
+		background-attachment: fixed; /* 防止背景随滚动而移动 */
+	}
 </style>
