@@ -347,11 +347,6 @@ Welcome to submit Issues and Pull Requests to improve the project:
 
 This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details
 
-### 📞 Contact
-
-- Project Maintainer: [Maintainer Name]
-- Email: [Contact Email]
-- Project Homepage: [Project Link]
 
 ### 🙏 Acknowledgments
 
