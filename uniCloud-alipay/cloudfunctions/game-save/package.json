@@ -1,0 +1,10 @@
+{
+  "name": "game-save",
+  "version": "1.0.0",
+  "description": "游戏存档云函数",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {},
+  "author": "",
+  "license": "ISC"
+}

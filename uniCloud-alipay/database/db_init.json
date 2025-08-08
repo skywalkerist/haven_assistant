@@ -1,0 +1,110 @@
+{
+  "collections": [
+    {
+      "collectionName": "game_saves",
+      "description": "游戏存档表",
+      "fields": [
+        {
+          "fieldName": "_id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "fieldName": "user_id", 
+          "type": "String",
+          "required": true,
+          "description": "用户ID"
+        },
+        {
+          "fieldName": "save_name",
+          "type": "String",
+          "required": true,
+          "description": "存档名称"
+        },
+        {
+          "fieldName": "current_year",
+          "type": "Number",
+          "required": true,
+          "description": "当前游戏年份"
+        },
+        {
+          "fieldName": "global_economy",
+          "type": "Number",
+          "required": true,
+          "description": "全局经济"
+        },
+        {
+          "fieldName": "persons",
+          "type": "Array",
+          "required": true,
+          "description": "人物数据"
+        },
+        {
+          "fieldName": "create_time",
+          "type": "Date",
+          "required": true,
+          "description": "创建时间"
+        },
+        {
+          "fieldName": "update_time",
+          "type": "Date",
+          "required": true,
+          "description": "更新时间"
+        }
+      ],
+      "indexes": [
+        {
+          "fields": ["user_id"],
+          "unique": false
+        }
+      ]
+    },
+    {
+      "collectionName": "game_events",
+      "description": "游戏事件配置表",
+      "fields": [
+        {
+          "fieldName": "_id",
+          "type": "String",
+          "required": true
+        },
+        {
+          "fieldName": "event_type",
+          "type": "String",
+          "required": true,
+          "description": "事件类型"
+        },
+        {
+          "fieldName": "trigger_age",
+          "type": "Number",
+          "required": true,
+          "description": "触发年龄"
+        },
+        {
+          "fieldName": "title",
+          "type": "String",
+          "required": true,
+          "description": "事件标题"
+        },
+        {
+          "fieldName": "description",
+          "type": "String",
+          "required": true,
+          "description": "事件描述"
+        },
+        {
+          "fieldName": "options",
+          "type": "Array",
+          "required": true,
+          "description": "选项列表"
+        },
+        {
+          "fieldName": "probability",
+          "type": "Number",
+          "required": true,
+          "description": "触发概率"
+        }
+      ]
+    }
+  ]
+}

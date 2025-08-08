@@ -1,0 +1,10 @@
+{
+  "name": "game-events",
+  "version": "1.0.0",
+  "description": "游戏事件配置云函数",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {},
+  "author": "",
+  "license": "ISC"
+}
