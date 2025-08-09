@@ -1,5 +1,46 @@
 import { reactive, computed } from 'vue'
 
+// 新增系统模块引入
+import { CONFIG } from '../systems/config.js'
+import { applyStudyStress, annualStressRecovery, maybeBurnout } from '../systems/stress.js'
+import { calcGaokaoScore, bandByScore } from '../systems/education.js'
+import { calcGaokaoResult } from '../systems/gaokao.js'
+import { initIndustry, tickIndustry, getMultiplier } from '../systems/industry.js'
+import { decorateCareers, calcPromotionProb, updateSatisfaction, maybeVoluntaryQuit } from '../systems/jobs.js'
+// 经济系统引入
+import { computeAnnualEconomics, nextHousePrice, getRandomCity, calculateHousePrice } from '../systems/economy.js'
+// 新住房事件引入
+// 住房事件系统暂未使用
+// import { MarriageHousingEvent, RelocateCityEvent, SchoolTierAdjustEvent, InvestmentHousingEvent, HousingEventHelpers } from '../systems/housing-events.js'
+// 新事件系统 v2.0 引入
+import { applyAdjustments, EVENT_POOL, EVENT_BASE_PROBABILITIES, rand, FAMILY_LEVEL, fitsAudience, fitsAge } from '../systems/events.js'
+// 新财务与住房系统引入
+import { computeFamilyAnnualExpense } from '../systems/finance.js'
+import { CONFIG_ECONOMY as CFG } from '../config/economy.js'
+// 财务工具引入
+import { annuityPayment } from '../src/sim/utils/finance.js'
+// 就业系统引入（仅保留新版本）
+import { generateJobOffers as generateJobOffersNew, calcJobSuccess as calcJobSuccessNew, calcStartingSalary as calcStartingSalaryNew } from '../src/sim/employment.js'
+// 住房系统引入
+import { setupRent, buyHouse, payHousingForYear } from '../src/sim/housing.js'
+// 常量引入
+import { 
+  COLLEGE_COST_BY_BAND, 
+  COLLEGE_COMP_BONUS, 
+  COLLEGE_PSY_BONUS,
+  REGION_UNIT_PRICE,
+  REGION_RENT_BASE,
+  SCHOOL_ZONE_PREMIUM,
+  DOWNPAY_DEFAULT,
+  MORTGAGE_YEARS,
+  MORTALITY,
+  FUNERAL_COST,
+  PENSION
+} from '../src/sim/constants.js'
+// 迁移系统引入
+import { suggestTargetRegion, randomCityName, proposeFamilyMove, applyFamilyMove } from '../src/sim/migration.js'
+// 工具函数已通过 events.js 导入
+
 // 专业列表数据
 const MAJORS = [
   '计算机科学与技术', '软件工程', '临床医学', '师范类', '学科相关专业', '会计学', 
@@ -187,12 +228,33 @@ export const gameStore = reactive({
   // 人物数据
   persons: [],
   
+  // 世界状态（新增）
+  worldState: {
+    regionType: 'city',
+    cityName: '合肥',
+    economicCycle: 1.0,
+    useNewEconomics: true // 默认启用新经济模式
+  },
+  
   // 家族资产系统
   familyAssets: {
+    // 保留原有学区房系统（兼容）
     schoolDistrictHouse: {
       owned: false,
       purchasePrice: 0,
       purchaseYear: 0
+    },
+    // 新住房系统
+    housing: {
+      mode: 'none', // 'none' | 'own' | 'rent'
+      regionType: 'city',
+      cityName: '合肥',
+      schoolTier: 'none', // 'none'|'avg'|'good'|'top'
+      area: 80, // 面积
+      buyYear: 0,
+      currentPrice: 0, // 总价
+      priceIndex: 1.0, // 用于年更新
+      annualMortgage: 0 // 年供
     }
   },
   
@@ -206,13 +268,42 @@ export const gameStore = reactive({
   currentEvent: null,
   isEventActive: false,
   
+  // 新事件系统 v2.0 状态
+  eventCooldowns: {}, // 记录各事件的冷却时间
+  yearlyEventCount: { major: 0, normal: 0 }, // 本年已触发的事件数量
+  currentEventQueue: [], // 当年随机事件队列（对象：{key, personId}）
+  pendingNormalEvent: null, // 当前正在展示的普通事件
+  isNormalSheetOpen: false, // 底部弹层是否显示
+  
   // 初始化游戏
   initGame() {
     this.currentYear = 0
     this.globalEconomy = this.generateInitialWealth()
     this.persons = []
+    // 新增 world 对象
+    this.world = { industry: { multipliers: { macro: 1 } } }
+    // 初始化世界状态
+    this.worldState = {
+      regionType: 'city',
+      cityName: getRandomCity('city'),
+      economicCycle: 1.0,
+      useNewEconomics: true
+    }
+    // 重置住房状态
+    this.familyAssets.housing = {
+      mode: 'none',
+      regionType: 'city',
+      cityName: this.worldState.cityName,
+      schoolTier: 'none',
+      buyYear: 0,
+      currentPrice: 0,
+      priceIndex: 1.0
+    }
     this.createInitialPerson()
     this.isGameStarted = true
+    // 模块初始化
+    decorateCareers(CAREERS)
+    initIndustry(this.world)
     this.startGameTimer()
   },
   
@@ -281,13 +372,17 @@ export const gameStore = reactive({
     }
   },
   
-  // 高考算法：根据智力生成大学档次
-  calculateGaokaoResult(intelligence, hasLove = false) {
+  // 高考算法：根据智力生成大学档次（增强版，兼容旧调用）
+  calculateGaokaoResult(intelligence, hasLove = false, personRef = null) {
+    if (personRef) {
+      const score = calcGaokaoScore(personRef)
+      const band = bandByScore(score)
+      return band
+    }
+    // 兼容旧调用：没传 personRef 就走旧逻辑
     const mean = intelligence - 10
-    const stdDev = hasLove ? 20 : 15 // 谈恋爱方差变大
-    
+    const stdDev = hasLove ? 20 : 15
     const score = this.generateNormalDistribution(mean, stdDev)
-    
     if (score >= 75) return '985'
     if (score >= 50) return '211'
     if (score >= 25) return '双非'
@@ -371,7 +466,7 @@ export const gameStore = reactive({
   
   // 计算升职成功率
   calculatePromotionRate(person, jobName) {
-    const career = CAREERS[jobName]
+    // const career = CAREERS[jobName] // 暂未使用
     const specialJobs = ['保险顾问', '健身教练', '销售代表', '空乘人员']
     
     if (specialJobs.includes(jobName)) {
@@ -405,6 +500,23 @@ export const gameStore = reactive({
       health: this.generateNormalDistribution(50, 15), // 正态分布，均值50
       charm: this.generateNormalDistribution(50, 15),   // 正态分布，均值50
       intelligence: this.generateNormalDistribution(50, 15), // 正态分布，均值50
+      // 新增属性
+      stability: this.generateNormalDistribution(50, 15),
+      motivation: this.generateNormalDistribution(50, 15),
+      creativity: this.generateNormalDistribution(50, 15),
+      stress: 0,
+      cumStudyHours: 0,
+      satisfaction: 50,
+      // 新经济系统属性
+      psyche: 50, // 心理健康
+      strain: 30, // 生活压力
+      competitiveness: 0, // 竞争力（自动计算）
+      ambition: 50, // 野心 0-100
+      // 求职偏好 0-1 累积
+      prefGov: 0, // 体制偏好
+      prefCorp: 0, // 企业偏好
+      prefStartup: 0, // 创业偏好
+      // 原有属性
       economicContribution: 0,
       income: 0,
       isAlive: true,
@@ -418,7 +530,12 @@ export const gameStore = reactive({
       jobSeeking: false, // 是否在找工作
       lastPromotionYear: 0, // 上次升职年份
       isRetired: false, // 是否退休
-      flags: {}
+      flags: {
+        internTier: 0, // 实习层级 0-2
+        researchTier: 0, // 科研层级 0-2
+        leaderTier: 0, // 干部层级 0-2
+        jobFailCount: 0 // 求职失败次数
+      }
     }
     this.persons.push(person)
   },
@@ -433,9 +550,39 @@ export const gameStore = reactive({
     }, this.gameSpeed)
   },
   
-  // 推进一年
+  // 推进一年（集成新系统）
   advanceYear() {
     this.currentYear++
+    
+    // A. 重置年度事件计数
+    this.yearlyEventCount = { major: 0, normal: 0 }
+    
+    // B. 行业周期推进
+    tickIndustry(this.world, this.currentYear)
+    
+    // C. 房价年度更新（新经济系统）
+    if (this.familyAssets.housing?.mode !== 'none') {
+      const housing = this.familyAssets.housing
+      housing.priceIndex = nextHousePrice(housing.priceIndex, housing.regionType, housing.schoolTier)
+      housing.currentPrice = calculateHousePrice(housing.regionType, housing.schoolTier, housing.priceIndex)
+      
+      // 房贷利率重定价（如果有房贷且已标记）
+      if (housing.mode === 'own' && housing.annualMortgage && this.persons.some(p => p.flags?.considerRefinance)) {
+        // 模拟利率微调：±0.2%
+        const rateAdjust = (Math.random() - 0.5) * 0.004 // ±0.2%
+        const newRate = Math.max(0.02, 0.046 + rateAdjust) // 基准4.6% ± 调整
+        const remainingPrincipal = housing.currentPrice * 0.65 * (1 - (this.currentYear - housing.buyYear) * 0.03) // 简化余额计算
+        housing.annualMortgage = annuityPayment(Math.max(0, remainingPrincipal), newRate, Math.max(1, 30 - (this.currentYear - housing.buyYear)))
+        
+        // 清除重定价标记
+        this.persons.forEach(p => {
+          if (p.flags?.considerRefinance) {
+            delete p.flags.considerRefinance
+          }
+        })
+      }
+    }
+    
     this.persons.forEach(person => {
       if (person.isAlive) {
         person.age++
@@ -451,54 +598,92 @@ export const gameStore = reactive({
           person.income += 10000
         }
         
+        // 渐进退休处理（半工时）
+        if (person.flags?.phasedRetire && !person.isRetired) {
+          person.income = Math.round(person.income * 0.6)
+          person.strain = Math.max(0, (person.strain || 50) - 2)
+        }
+        
+        // 返聘补贴
+        if (person.flags?.rehired && person.isRetired) {
+          person.income += 20000
+          person.strain = Math.min(100, (person.strain || 10) + 1)
+        }
+        
         this.updatePersonEconomics(person)
+        
+        // B. 对每个在职人员：更新满意度、可能主动离职
+        const job = person.occupation && CAREERS[person.occupation]
+        if (job) {
+          const careerMatch = !job.majors?.length || (person.major && job.majors.includes(person.major))
+          updateSatisfaction(person, careerMatch, person.stress || 0)
+          if (maybeVoluntaryQuit(person)) {
+            this.showEventResult(person, '主动离职', `由于满意度较低，${person.name}选择离职并开始找工作`, false)
+          }
+        }
+        
+        // C. 年度压力恢复 & 倦怠
+        maybeBurnout(person) // 可能触发今年的倦怠标记（影响学习/升职表现）
+        annualStressRecovery(person)
+        
+        // D. 新事件系统检查
+        this.checkNewEventSystem(person)
+        
+        this.checkMortality(person)
         this.checkLifeEvents(person)
         this.checkLifeEnd(person)
       }
     })
-    this.updateGlobalEconomy()
+    
+    // 年度家庭总支出（新财务系统）
+    try {
+      const annualExpense = computeFamilyAnnualExpense(this)
+      this.globalEconomy -= annualExpense
+      
+      // 处理住房年度支出
+      payHousingForYear(this)
+      
+      // 检查房贷违约风险
+      this.checkMortgageArrears()
+      
+      // 可选：显示支出详情（每5年一次）
+      if (this.currentYear % 5 === 0) {
+        console.log(`第${this.currentYear}年家庭支出: ${annualExpense.toLocaleString()}元`)
+      }
+    } catch (error) {
+      console.error('计算年度支出失败:', error)
+    }
     
     // 检查破产
     this.checkBankruptcy()
+    
+    // 处理年度随机事件队列（新事件系统v2.0）
+    this.buildAndQueueRandomEvents()
+    this.processEventQueueHead()
     
     // 检查游戏结束条件
     this.checkGameOver()
   },
   
-  // 更新个人经济贡献
+  // 更新个人经济贡献（使用新经济模型）
   updatePersonEconomics(person) {
-    let totalIncome = person.income || 0
-    let expense = 0
+    // 计算竞争力（基于多维属性）
+    person.competitiveness = Math.min(100, 
+      (person.intelligence * 0.4 + person.charm * 0.3 + person.stability * 0.3)
+    )
     
-    // 基础支出（正态分布+健康惩罚）
-    if (person.age < 18) {
-      // 未成年人：均值1.5万的正态分布
-      expense = Math.max(5000, this.generateNormalDistributionForExpense(15000, 2250)) // 标准差为均值的15%
-      if (person.health < 70) {
-        expense += Math.pow(70 - person.health, 2) * 10
-      }
-    } else {
-      // 成年人：均值2.8万的正态分布
-      expense = Math.max(10000, this.generateNormalDistributionForExpense(28000, 4200)) // 标准差为均值的15%
-      if (person.health < 70) {
-        expense += Math.pow(70 - person.health, 2) * 10
-      }
+    // 使用新经济模型
+    const { effectiveIncome, totalExpense, contribution } = computeAnnualEconomics(person, this, CAREERS)
+    
+    // 修复：将计算结果正确赋值给person.economicContribution
+    person.economicContribution = contribution
+    
+    // 可选：记录详细信息用于调试
+    if (this.currentYear % 5 === 0) {
+      console.log(`${person.name} 经济状况: 收入${effectiveIncome}, 支出${totalExpense}, 贡献${contribution}`)
     }
     
-    // 子女抚养费已删除
-    
-    // 70岁后每年自动损失健康
-    if (person.age >= 70) {
-      person.health = Math.max(0, person.health - 3)
-    }
-    
-    // 全家族学区房增益（如果家族拥有学区房）
-    if (this.hasSchoolDistrictHouse() && person.age < 18) {
-      // 家族有学区房的未成年人每年获得智力加成
-      person.intelligence = Math.min(100, person.intelligence + 1)
-    }
-    
-    person.economicContribution = totalIncome - expense
+    return { effectiveIncome, totalExpense, contribution }
   },
   
   // 获取职业工资范围
@@ -556,15 +741,22 @@ export const gameStore = reactive({
     return Math.floor(sellPrice)
   },
   
-  // 处理升职（自动触发）
+  // 处理升职（集成行业与倦怠系统）
   handlePromotion(person) {
-    const promoteRate = this.calculatePromotionRate(person, person.occupation)
     const career = CAREERS[person.occupation]
+    const salesLike = ['保险顾问','健身教练','销售代表','空乘人员'].includes(person.occupation)
+    const baseProb = calcPromotionProb(person, person.occupation, salesLike) // 已经做过clamp
+    const industryMul = getMultiplier(career.cycleCategory, this.world) // 行业景气影响
+
+    // 倦怠年：降 20% 表现（在 stress.maybeBurnout 设置了 flags）
+    const burnoutMul = person.flags?.burnoutThisYear ? 0.8 : 1
+    const finalProb = Math.max(0.01, Math.min(0.95, baseProb * Math.max(0.5, industryMul) * burnoutMul))
     
-    if (Math.random() < promoteRate) {
-      const salaryIncrease = Math.floor((career.maxSalary - career.minSalary) * 0.1)
-      const newSalary = person.income + salaryIncrease
-      person.income = Math.min(newSalary, career.maxSalary)
+    if (Math.random() < finalProb) {
+      const salaryCap = Math.round(career.maxSalary * Math.max(0.7, industryMul)) // 不让行业暴跌直接归零
+      const salaryIncrease = Math.floor((career.maxSalary - career.minSalary) * 0.10)
+      const newSalary = Math.min(person.income + salaryIncrease, salaryCap)
+      person.income = newSalary
       person.health = Math.max(0, person.health - 2)
       person.lastPromotionYear = this.currentYear
       
@@ -575,6 +767,9 @@ export const gameStore = reactive({
       this.showEventResult(person, '升职失败', 
         `很遗憾，这次升职机会没有把握住\n💡 继续努力，三年后还有机会！`, false)
     }
+    
+    // 清除今年的倦怠标记（避免跨年持续）
+    if (person.flags?.burnoutThisYear) person.flags.burnoutThisYear = false
   },
   
   // 检查人生事件
@@ -587,13 +782,8 @@ export const gameStore = reactive({
       return
     }
     
-    // 检查随机事件
-    const randomEvents = this.getRandomEvents(person.age, person)
-    randomEvents.forEach(eventData => {
-      if (Math.random() < eventData.probability) {
-        this.triggerEvent(person, eventData.type)
-      }
-    })
+    // 随机事件现在由buildAndQueueRandomEvents和EVENT_POOL系统统一处理
+    // 不再在这里单独处理随机事件
   },
   
   // 获取重要事件（必然触发）
@@ -602,7 +792,48 @@ export const gameStore = reactive({
     
     // 高考（18岁，且没有辍学）
     if (age === 18 && !person.schoolLevel && person.education !== '初中' && person.education !== '高中') {
-      events.push('高考')
+      const { score, percentile, tier: band } = calcGaokaoResult(person, this)
+      const majorOptions = this.generateMajorOptions()
+      
+      // 根据档次给一个倾向的地域（985更偏 mega/city；二本偏 county/rural）
+      const band2Region = (band, home) => {
+        const rnd = Math.random()
+        if (band==='985') return rnd<0.65 ? 'mega' : 'city'
+        if (band==='211') return rnd<0.6 ? 'city' : (rnd<0.8 ? 'mega' : home)
+        if (band==='双非') return rnd<0.6 ? 'county' : 'city'
+        return rnd<0.6 ? 'county' : 'rural'
+      }
+      
+      const homeRegion = this.familyAssets?.housing?.regionType || this.familyAssets?.housing?.region || 'city'
+      
+      const choices = [
+        { text: '不上大学，直接工作', cost: 0, effects: {}, special: 'noCollege' },
+        ...majorOptions.map(m => {
+          const targetRegion = band2Region(band, homeRegion)
+          return {
+            text: `${band} - ${m}（城市：${randomCityName(targetRegion)}）`,
+            cost: COLLEGE_COST_BY_BAND[band],
+            effects: { 
+              competitiveness: +(COLLEGE_COMP_BONUS[band]), 
+              psyche: +(COLLEGE_PSY_BONUS[band]) 
+            },
+            special: 'college',
+            majorData: { schoolLevel: band, major: m, studyRegion: targetRegion }
+          }
+        })
+      ]
+      this.currentEvent = { 
+        person, 
+        type: '高考', 
+        ui: 'modal', 
+        title: '高考出分', 
+        icon: '🎓',
+        text: `成绩：${score}`, 
+        options: choices, 
+        choices 
+      }
+      this.isEventActive = true
+      return ['高考']
     }
     
     // 读研选择（22岁，双非及以上）
@@ -624,6 +855,7 @@ export const gameStore = reactive({
       events.push('找工作')
       this.showEventResult(person, '研究生毕业', 
         `🎓 恭喜硕士毕业！\n📚 获得硕士学位\n💼 开始寻找工作机会\n💰 硕士学历求职薪资+3万/年`, true)
+      return events // 毕业处理完成后立即返回
     }
     
     // 辍学选择（12岁和16岁）
@@ -642,14 +874,20 @@ export const gameStore = reactive({
       events.push('找工作')
     }
     
-    // 升职（工作3年后每3年一次，自动触发，体力活不能升职）
-    if (person.occupation && person.occupation !== '体力活' && person.workYears > 0 && person.workYears % 3 === 0 && person.lastPromotionYear < this.currentYear) {
+    // 升职（工作3年后每3年一次，自动触发，体力活不能升职，退休后不再升职）
+    if (person.occupation && person.occupation !== '体力活' && !person.isRetired && person.workYears >= 3 && person.workYears % 3 === 0 && person.lastPromotionYear < this.currentYear) {
       this.handlePromotion(person)
+      return events // 升职处理完成后立即返回，避免同一年触发其他事件
     }
     
     // 择偶（25岁后未婚人士）
     if (age >= 25 && !person.partner && Math.random() < 0.3) {
       events.push('择偶')
+    }
+    
+    // 结婚后住房选择
+    if (person.flags?.needHousingAfterMarriage) {
+      events.push('结婚住房选择')
     }
     
     // 生育（结婚一年后，女性40岁以下）
@@ -659,219 +897,67 @@ export const gameStore = reactive({
       events.push('生育')
     }
     
-    // 退休（65岁）
-    if (age === 65 && !person.isRetired) {
-      events.push('退休')
+    // 提前退休申请（55-60岁）
+    if (age >= 55 && age <= 60 && person.occupation && !person.isRetired && Math.random() < 0.15) {
+      events.push('提前退休申请')
     }
     
-    return events
-  },
-  
-  // 获取随机事件
-  getRandomEvents(age, person) {
-    const events = []
-    
-    // 早期教育事件
-    if (age === 0) events.push({ type: '早教班', probability: 0.8 })
-    if (age === 3) events.push({ type: '幼儿园择校', probability: 0.9 })
-    
-    // 小学阶段
-    if (age === 6) events.push({ type: '小学择校', probability: 1.0 })
-    if (age >= 7 && age <= 11 && age % 2 === 1) events.push({ type: '课外补习', probability: 0.6 })
-    if (age === 8) events.push({ type: '才艺比赛', probability: 0.3 })
-    
-    // 初中阶段
-    if (age === 12) events.push({ type: '小升初', probability: 0.8 })
-    if (age === 13) events.push({ type: '青春发育', probability: 0.4 })
-    if (age === 14) events.push({ type: '网瘾问题', probability: 0.3 })
-    
-    // 高中阶段
-    if (age === 15) events.push({ type: '中考冲刺', probability: 0.7 })
-    if (age === 15) events.push({ type: '高中选择', probability: 0.2 })
-    if (age === 16) events.push({ type: '高中恋爱', probability: 0.5 })
-    
-    // 大学阶段
-    if (age === 18) events.push({ type: '间隔年', probability: 0.1 })
-    if (age === 20) events.push({ type: '大学创业', probability: 0.2 })
-    
-    // 职场阶段
-    if (age === 32) events.push({ type: '副业投资', probability: 0.4 })
-    if (age === 45) events.push({ type: '中年危机', probability: 0.8 })
-    if (age === 50) events.push({ type: '父母养老', probability: 0.6 })
-    
-    // 老年阶段
-    if (age === 65) events.push({ type: '环球旅行', probability: 0.3 })
-    if (age === 70) events.push({ type: '立遗嘱', probability: 0.5 })
-    
-    // 普通随机事件
-    if (age >= 15) events.push({ type: '健身年卡', probability: 0.02 })
-    if (age >= 18) events.push({ type: '买彩票', probability: 0.03 })
-    if (age >= 25) events.push({ type: '医美抗衰', probability: 0.04 })
-    if (age >= 15) events.push({ type: '健康作息', probability: 0.05 })
-    
-    // 突发事件
-    if (age >= 65) events.push({ type: '重病', probability: 0.05 })
-    events.push({ type: '意外', probability: 0.0008 })
-    
-    return events
-  },
-  
-  // 触发事件
-  triggerEvent(person, eventType) {
-    this.currentEvent = {
-      person: person,
-      type: eventType,
-      options: this.getEventOptions(eventType, person)
+    // 渐进退休/返聘（62-65岁）
+    if (age >= 62 && age < 65 && person.occupation && !person.isRetired && Math.random() < 0.2) {
+      events.push('渐进退休')
     }
-    this.isEventActive = true
-  },
-  
-  // 获取事件选项
-  getEventOptions(eventType, person) {
-    const optionsMap = {
-      // 重要事件
-      '高考': [
-        { text: '不上大学，直接工作', cost: 0, effects: {}, special: 'noCollege' },
-        ...this.generateCollegeOptions(person)
-      ],
-      '读研选择': [
-        { text: '不读研，直接就业', cost: 0, effects: {}, special: 'startJobSeeking' },
-        { text: '考研', cost: 50000, effects: {}, special: 'gradSchool' }
-      ],
-      '找工作': this.generateJobEventOptions(person),
-      '择偶': this.generateMarriageOptions(person),
-      '生育': [
-        { text: '暂不生育', cost: 0, effects: {} },
-        { text: '生孩子', cost: 50000, effects: {}, special: 'haveBaby' }
-      ],
-      '退休': [
-        { text: '正常退休', cost: 0, effects: {}, special: 'retire' },
-        { text: '返聘工作', cost: 0, effects: { health: -1 }, special: 'keepWorking' }
-      ],
+    
+    // 65岁强制退休 + 返聘机会
+    if (age === 65 && !person.isRetired && person.occupation) {
+      const region = this.familyAssets?.housing?.regionType || this.familyAssets?.housing?.region || 'city'
+      const base = PENSION.base * (PENSION.regionK[region] || 1)
+      person.isRetired = true
+      person.income = Math.round(Math.min(PENSION.cap, Math.max(PENSION.floor, base)))
+      person.workYears = 0
+      person.lastPromotionYear = 0
       
-      // 随机事件
-      '早教班': [
-        { text: '不去', cost: 0, effects: {} },
-        { text: '去早教班', cost: 30000, effects: { intelligence: 1, charm: 1 } }
-      ],
-      '幼儿园择校': [
-        { text: '公立幼儿园', cost: 1500, effects: {} },
-        { text: '国际双语幼儿园', cost: 20000, effects: { intelligence: 2, charm: 2 }, special: 'internationalKG' }
-      ],
-      '小学择校': [
-        { text: '普通小学', cost: 0, effects: {} },
-        { text: '买学区房', cost: 300000, effects: {}, special: 'schoolDistrict' },
-        { text: '国际小学', cost: 400000, effects: { intelligence: 8, charm: 4 } }
-      ],
-      '课外补习': [
-        { text: '不上补习', cost: 0, effects: {} },
-        { text: '常规补习', cost: 10000, effects: { intelligence: 2, health: -1 } },
-        { text: '奥数', cost: 10000, effects: { intelligence: 5, charm: -3, health: -3 } },
-        { text: '兴趣班', cost: 30000, effects: { intelligence: 1, charm: 3, health: -1 } }
-      ],
-      '才艺比赛': [
-        { text: '不参加', cost: 0, effects: {} },
-        { text: '参加比赛', cost: 5000, effects: { charm: 1 }, special: 'talentShow' }
-      ],
-      '小升初': [
-        { text: '直升对口初中', cost: 0, effects: {} },
-        { text: '民办牛校', cost: 150000, effects: { intelligence: 4 } },
-        { text: '辍学就业', cost: 0, effects: {}, special: 'dropout12' }
-      ],
-      '青春发育': [
-        { text: '顺其自然', cost: 0, effects: {} },
-        { text: '医美/牙齿矫正', cost: 30000, effects: { charm: 3 } }
-      ],
-      '网瘾问题': [
-        { text: '严格禁止', cost: 0, effects: { health: 1, charm: -1 } },
-        { text: '适度放任', cost: 0, effects: { intelligence: -1, charm: 1 } }
-      ],
-      '中考冲刺': [
-        { text: '普通复习', cost: 0, effects: {} },
-        { text: '一对一私教', cost: 30000, effects: { intelligence: 3, health: -1 } }
-      ],
-      '高中选择': [
-        { text: '普通高中', cost: 0, effects: {} },
-        { text: '上国际高中', cost: 450000, effects: { intelligence: 3, charm: 6 } },
-        { text: '上重点高中', cost: 10000, effects: { intelligence: 6, charm: 3 }, condition: person => person.intelligence > 70 },
-        { text: '辍学就业', cost: 0, effects: {}, special: 'dropout16' }
-      ],
-      '高中恋爱': [
-        { text: '专心学习', cost: 0, effects: {} },
-        { text: '谈恋爱', cost: 0, effects: { intelligence: -1, charm: 2 }, special: 'youngLove' }
-      ],
-      '间隔年': [
-        { text: '直接升学', cost: 0, effects: {} },
-        { text: '环球旅行', cost: 50000, effects: { charm: 3, health: 2 } }
-      ],
-      '大学创业': [
-        { text: '不参与创业', cost: 0, effects: {} },
-        { text: '参与创业', cost: 150000, effects: {}, special: 'collegeStartup' }
-      ],
-      '第一份工作': this.getJobOptions(person),
-      '婚恋市场': this.getMarriageOptions(person),
-      '生娃': [
-        { text: '暂不生育', cost: 0, effects: { charm: -2, health: 1 } },
-        { text: '生1个孩子', cost: 50000, effects: {}, special: 'baby1' },
-        { text: '生2个孩子', cost: 80000, effects: { health: -1 }, special: 'baby2' }
-      ],
-      '副业投资': [
-        { text: '不做副业', cost: 0, effects: {} },
-        { text: '炒股', cost: 100000, effects: {}, special: 'stocks' },
-        { text: '奶茶店加盟', cost: 150000, effects: {}, special: 'teaShop' }
-      ],
-      '中年危机': [
-        { text: '混日子', cost: 0, effects: {}, special: 'stagnant' },
-        { text: '跳槽创业', cost: 300000, effects: {}, special: 'midlifeStartup' }
-      ],
-      '父母养老': [
-        { text: '送养老院', cost: 60000, effects: { health: 1 }, special: 'nursingHome' },
-        { text: '居家请护工', cost: 100000, effects: { charm: 2 }, special: 'homecare' }
-      ],
-      '退休': [
-        { text: '正常退休', cost: 0, effects: {}, special: 'retire' },
-        { text: '返聘工作', cost: 0, effects: { health: -1 }, special: 'workMore' }
-      ],
-      '环球旅行': [
-        { text: '不去旅行', cost: 0, effects: {} },
-        { text: '环球旅行', cost: 200000, effects: { charm: 3, health: 1 } }
-      ],
-      '立遗嘱': [
-        { text: '不留遗产', cost: 0, effects: {}, special: 'noWill' },
-        { text: '留房产给子女', cost: 0, effects: { charm: 1 }, special: 'inheritHouse' }
-      ],
-      '健身年卡': [
-        { text: '不办健身卡', cost: 0, effects: {} },
-        { text: '办健身年卡', cost: 10000, effects: { health: 1, charm: 1 } }
-      ],
-      '买彩票': [
-        { text: '不买彩票', cost: 0, effects: {} },
-        { text: '买彩票', cost: 200, effects: {}, special: 'lottery' }
-      ],
-      '医美抗衰': [
-        { text: '不做医美', cost: 0, effects: {} },
-        { text: '医美抗衰老', cost: 20000, effects: { charm: 2, health: -1 } }
-      ],
-      '健康作息': [
-        { text: '不改变作息', cost: 0, effects: {} },
-        { text: '健康作息', cost: 5000, effects: { health: 1 } }
-      ],
-      '重病': [
-        { text: '不治疗', cost: 0, effects: { health: -30 } },
-        { text: '一般治疗', cost: 200000, effects: { health: -15 } },
-        { text: '优化治疗', cost: 500000, effects: { health: -5 } }
-      ],
-      '意外': [
-        { text: '接受现实', cost: 0, effects: { health: -100 } }
-      ]
+      // 返聘机会弹窗
+      this.currentEvent = {
+        person, type:'返聘', ui:'modal', icon:'🧑‍🏫',
+        title:'退休返聘邀请',
+        text:'单位希望你以顾问身份返聘，工时较低、收入少量补贴。',
+        options: [
+          { text:'接受返聘', cost:0, effects:{ flag:{ rehired:true } }, special:'rehire_accept' },
+          { text:'婉拒', cost:0, effects:{} }
+        ]
+      }
+      this.isEventActive = true
+      return events // 退休处理完成后立即返回，避免同一年触发其他事件
     }
-    return optionsMap[eventType] || []
+    
+    return events
   },
+  
+  // 获取随机事件（已弃用，使用EVENT_POOL系统）
+  getRandomEvents() {
+    // 此方法已弃用，所有事件现在由EVENT_POOL统一管理
+    // 保留方法以维持兼容性，但返回空数组
+    console.warn('getRandomEvents已弃用，所有事件现在由EVENT_POOL统一管理')
+    return []
+  },
+  
+  // 触发事件（已弃用，使用EVENT_POOL系统）
+  triggerEvent(person, eventType) {
+    // 尝试从EVENT_POOL中找到对应事件
+    const event = EVENT_POOL.find(e => e.title === eventType || e.id === eventType)
+    if (event) {
+      // 使用新的事件系统
+      this.triggerNewEvent(event, person)
+    } else {
+      console.warn(`事件 ${eventType} 未在EVENT_POOL中找到，将被忽略`)
+    }
+  },
+  
   
   // 生成高考大学选项
   generateCollegeOptions(person) {
     const majorOptions = this.generateMajorOptions()
-    const schoolLevel = this.calculateGaokaoResult(person.intelligence, person.flags?.youngLove)
+    const schoolLevel = this.calculateGaokaoResult(person.intelligence, person.flags?.youngLove, person)
     
     const options = []
     majorOptions.forEach(major => {
@@ -901,27 +987,189 @@ export const gameStore = reactive({
     return options
   },
   
-  // 生成工作事件选项
+  // 生成工作事件选项（使用新就业系统）
   generateJobEventOptions(person) {
-    const jobOptions = this.generateJobOptions(person)
+    const jobs = generateJobOffersNew(person, CAREERS) // 返回 [{job, region}]
+    
+    return jobs.map(({job, region}) => {
+      const p = calcJobSuccessNew(person, job, CAREERS)
+      return { 
+        text: `应聘${job} @${region} (成功率${Math.round(p * 100)}%)`, 
+        cost: 0, 
+        effects: {}, 
+        special: 'applyJob', 
+        jobData: { jobName: job, successRate: p, targetRegion: region } 
+      }
+    })
+  },
+  
+  // 生成结婚住房选项
+  generateMarriageHousingOptions() {
+    const regionType = this.worldState.regionType
     const options = []
     
-    jobOptions.forEach(jobName => {
-      const successRate = this.calculateJobSuccessRate(person, jobName)
-      const career = CAREERS[jobName]
-      
+    // 从constants.js获取价格参数
+    const unitPrice = REGION_UNIT_PRICE[regionType] || 25000
+    const rentBase = REGION_RENT_BASE[regionType] || 2400
+    
+    // 租房选项（学区等级不同）
+    options.push({
+      text: `租普通住房 (年租金${Math.round(rentBase * 12).toLocaleString()}元)`,
+      cost: 0,
+      effects: { psyche: -2 },
+      special: 'rentHouse',
+      housingData: { mode: 'rent', schoolTier: 'none' }
+    })
+    
+    options.push({
+      text: `租学区房 (年租金${Math.round(rentBase * 12 * 1.3).toLocaleString()}元)`,
+      cost: 0,
+      effects: { psyche: -1 },
+      special: 'rentHouse', 
+      housingData: { mode: 'rent', schoolTier: 'avg' }
+    })
+    
+    // 买房选项（需要首付）
+    const area = 80 // 默认80平
+    const nonePrice = Math.round(unitPrice * area)
+    const avgPrice = Math.round(unitPrice * area * SCHOOL_ZONE_PREMIUM)
+    const goodPrice = Math.round(unitPrice * area * SCHOOL_ZONE_PREMIUM * 1.4)
+    
+    options.push({
+      text: `买普通住房 (总价${Math.round(nonePrice/10000)}万，首付${Math.round(nonePrice * DOWNPAY_DEFAULT/10000)}万)`,
+      cost: Math.round(nonePrice * DOWNPAY_DEFAULT),
+      effects: { psyche: +3 },
+      special: 'buyHouse',
+      housingData: { mode: 'own', schoolTier: 'none' }
+    })
+    
+    if (this.globalEconomy >= avgPrice * DOWNPAY_DEFAULT - 200000) {
       options.push({
-        text: `应聘${jobName} (成功率${Math.round(successRate * 100)}%)`,
-        cost: 0,
-        effects: {},
-        special: 'applyJob',
-        jobData: { jobName, successRate }
+        text: `买学区房 (总价${Math.round(avgPrice/10000)}万，首付${Math.round(avgPrice * DOWNPAY_DEFAULT/10000)}万)`,
+        cost: Math.round(avgPrice * DOWNPAY_DEFAULT),
+        effects: { psyche: +5 },
+        special: 'buyHouse',
+        housingData: { mode: 'own', schoolTier: 'avg' }
       })
+    }
+    
+    if (this.globalEconomy >= goodPrice * DOWNPAY_DEFAULT - 100000) {
+      options.push({
+        text: `买优质学区房 (总价${Math.round(goodPrice/10000)}万，首付${Math.round(goodPrice * DOWNPAY_DEFAULT/10000)}万)`,
+        cost: Math.round(goodPrice * DOWNPAY_DEFAULT),
+        effects: { psyche: +8 },
+        special: 'buyHouse',
+        housingData: { mode: 'own', schoolTier: 'good' }
+      })
+    }
+    
+    return options
+  },
+
+  // 生成城市迁移选项
+  generateCityMigrationOptions() {
+    const currentRegion = this.worldState.regionType
+    const options = []
+    
+    // 如果当前在非一线城市，提供一线城市选项
+    if (currentRegion !== 'mega') {
+      options.push({
+        text: '迁移到一线城市 (高收入机会，高生活成本)',
+        cost: 80000, // 搬家成本
+        effects: { strain: +8, ambition: +2 },
+        special: 'relocateToMega'
+      })
+    }
+    
+    // 如果当前在一线城市，提供回流选项
+    if (currentRegion === 'mega') {
+      options.push({
+        text: '回到二三线城市 (生活压力小，发展受限)',
+        cost: 50000,
+        effects: { strain: -5, psyche: +3 },
+        special: 'relocateToStable',
+        targetRegion: 'city'
+      })
+    }
+    
+    // 如果在城市，提供县城选项
+    if (currentRegion === 'city') {
+      options.push({
+        text: '回到家乡县城 (安逸生活，收入降低)',
+        cost: 30000,
+        effects: { strain: -8, psyche: +5 },
+        special: 'relocateToStable',
+        targetRegion: 'county'
+      })
+    }
+    
+    // 保持现状选项
+    options.push({
+      text: '不迁移，继续留在当地',
+      cost: 0,
+      effects: { stability: +1 }
     })
     
     return options
   },
-  
+
+  // 生成住房升级选项
+  generateHousingUpgradeOptions() {
+    const housing = this.familyAssets.housing
+    const currentRegion = this.worldState.regionType
+    const options = []
+    
+    if (housing.mode === 'rent') {
+      // 租房转买房
+      const unitPrice = REGION_UNIT_PRICE[currentRegion] || 25000
+      const area = 80
+      const price = Math.round(unitPrice * area * 1.2) // 稍好的房子
+      const downPayment = Math.round(price * DOWNPAY_DEFAULT)
+      
+      options.push({
+        text: `租转买：购买住房 (总价${Math.round(price/10000)}万，首付${Math.round(downPayment/10000)}万)`,
+        cost: downPayment,
+        effects: { psyche: +5, strain: +3 },
+        special: 'upgradeRentToBuy'
+      })
+    }
+    
+    if (housing.mode === 'own') {
+      // 学区升级
+      if (housing.schoolTier === 'none' || housing.schoolTier === 'avg') {
+        const targetTier = housing.schoolTier === 'none' ? 'avg' : 'good'
+        const upgradeCost = housing.schoolTier === 'none' ? 800000 : 1200000
+        
+        options.push({
+          text: `学区升级：换到${targetTier === 'avg' ? '普通' : '优质'}学区房 (换房成本${Math.round(upgradeCost/10000)}万)`,
+          cost: upgradeCost,
+          effects: { psyche: +3, strain: +8 },
+          special: 'upgradeSchoolTier',
+          targetTier: targetTier
+        })
+      }
+      
+      // 面积升级
+      if (housing.area < 120) {
+        options.push({
+          text: `面积升级：换大房子 (换房成本50万)`,
+          cost: 500000,
+          effects: { psyche: +2, strain: +5 },
+          special: 'upgradeArea'
+        })
+      }
+    }
+    
+    // 保持现状
+    options.push({
+      text: '满足现状，不升级住房',
+      cost: 0,
+      effects: { stability: +1 }
+    })
+    
+    return options
+  },
+
   // 生成择偶选项
   generateMarriageOptions(person) {
     const options = []
@@ -969,12 +1217,14 @@ export const gameStore = reactive({
     }
   },
   
-  // 处理事件选择
+  // 处理事件选择（集成学习压力注入与新事件系统）
   handleEventChoice(option) {
     const person = this.currentEvent.person
+    const isNewEventSystem = !!this.currentEvent.eventData
     
     // 检查是否有足够经济（允许负债30万内继续选择）
-    if (this.globalEconomy - option.cost < -300000) {
+    const cost = option.cost || 0
+    if (this.globalEconomy - cost < -300000) {
       uni.showToast({ 
         title: '此选择将导致破产，无法选择', 
         icon: 'none',
@@ -984,16 +1234,30 @@ export const gameStore = reactive({
     }
     
     // 扣除费用
-    this.globalEconomy -= option.cost
+    this.globalEconomy -= cost
     
     // 应用基础属性效果
-    Object.keys(option.effects).forEach(key => {
-      if (['health', 'charm', 'intelligence'].includes(key)) {
-        person[key] = Math.min(100, Math.max(0, person[key] + option.effects[key]))
-      } else if (key === 'occupation') {
-        person[key] = option.effects[key]
+    if (isNewEventSystem) {
+      // 新事件系统的效果处理
+      this.applyNewEventEffects(person, option.effects)
+    } else {
+      // 原有事件系统的效果处理
+      Object.keys(option.effects).forEach(key => {
+        if (['health', 'charm', 'intelligence'].includes(key)) {
+          person[key] = Math.min(100, Math.max(0, person[key] + option.effects[key]))
+        } else if (key === 'occupation') {
+          person[key] = option.effects[key]
+        }
+      })
+    }
+    
+    // 学习类事件：注入学习压力（补习、奥数等）
+    if (this.isStudyEvent(option, this.currentEvent.type)) {
+      const hours = this.getStudyHours(option)
+      if (hours > 0) {
+        applyStudyStress(person, hours)
       }
-    })
+    }
     
     // 处理特殊效果
     if (option.special) {
@@ -1002,6 +1266,160 @@ export const gameStore = reactive({
     
     this.isEventActive = false
     this.currentEvent = null
+  },
+  
+  // 新事件系统效果应用器
+  applyNewEventEffects(person, effects) {
+    Object.keys(effects).forEach(key => {
+      const value = effects[key]
+      
+      switch (key) {
+        // 基础属性
+        case 'health':
+        case 'charm':
+        case 'intelligence':
+        case 'stability':
+        case 'motivation':
+        case 'creativity':
+          person[key] = Math.min(100, Math.max(0, (person[key] || 50) + value))
+          break
+          
+        // 新经济系统属性
+        case 'psyche':
+          person.psyche = Math.min(100, Math.max(0, (person.psyche || 50) + value))
+          break
+        case 'strain':
+          person.strain = Math.min(100, Math.max(0, (person.strain || 0) + value))
+          break
+        case 'competitiveness':
+          person.competitiveness = Math.min(100, Math.max(0, (person.competitiveness || 0) + value))
+          break
+        case 'ambition':
+          person.ambition = Math.min(100, Math.max(0, (person.ambition || 50) + value))
+          break
+          
+        // 求职偏好属性 (0-1累积)
+        case 'prefGov':
+          person.prefGov = Math.min(1, Math.max(0, (person.prefGov || 0) + value))
+          break
+        case 'prefCorp':
+          person.prefCorp = Math.min(1, Math.max(0, (person.prefCorp || 0) + value))
+          break
+        case 'prefStartup':
+          person.prefStartup = Math.min(1, Math.max(0, (person.prefStartup || 0) + value))
+          break
+          
+        // 经济效果
+        case 'cash':
+          this.globalEconomy += value
+          break
+        case 'income':
+          if (typeof value === 'number' && value > 0 && value < 1) {
+            // 百分比增长
+            person.income = Math.round((person.income || 0) * (1 + value))
+          } else {
+            // 绝对值增长
+            person.income = Math.max(0, (person.income || 0) + value)
+          }
+          break
+          
+        // 状态标记
+        case 'unemployed':
+          if (value === true) {
+            person.occupation = null
+            person.income = 0
+            person.jobSeeking = true
+            person.workYears = 0
+          }
+          break
+          
+        // 自定义标记
+        case 'flag':
+          if (!person.flags) person.flags = {}
+          // 支持履历层级的累积逻辑
+          Object.keys(value).forEach(flagKey => {
+            if (['internTier', 'researchTier', 'leaderTier'].includes(flagKey)) {
+              // 履历层级使用Math.max逻辑，不会倒退
+              person.flags[flagKey] = Math.max(person.flags[flagKey] || 0, value[flagKey])
+            } else if (flagKey === 'gamingHours') {
+              // 游戏时间累积或减少
+              const currentHours = person.flags[flagKey] || 0
+              person.flags[flagKey] = Math.max(0, currentHours + value[flagKey])
+            } else {
+              // 其他标记直接赋值
+              person.flags[flagKey] = value[flagKey]
+            }
+          })
+          break
+          
+        // 特殊处理
+        case 'special':
+          this.handleSpecialNewEventEffects(person, value)
+          break
+          
+        default:
+          // 其他未知属性直接赋值
+          person[key] = value
+          break
+      }
+    })
+  },
+  
+  // 新事件系统特殊效果处理
+  handleSpecialNewEventEffects(person, special) {
+    switch (special) {
+      case 'layoffChance':
+        // 裁员风险：50%概率保住工作
+        if (Math.random() < 0.5) {
+          this.showEventResult(person, '内部转岗', 
+            `🎯 成功转岗避免裁员！\\n💼 保住工作但薪资略降\\n💪 危机中展现韧性`, true)
+        } else {
+          person.occupation = null
+          person.income = 0
+          person.jobSeeking = true
+          person.workYears = 0
+          person.strain = Math.min(100, (person.strain || 0) + 12)
+          this.showEventResult(person, '裁员', 
+            `😢 不幸被裁员\\n💔 失去工作和收入\\n🔍 需要重新找工作\\n📈 压力大幅上升`, false)
+        }
+        break
+        
+      case 'probationTest':
+        // 试用期测试：基于能力判断
+        const passRate = Math.min(0.8, (person.competitiveness || 0) / 100 + (person.motivation || 0) / 150)
+        if (Math.random() < passRate) {
+          this.showEventResult(person, '试用期转正', 
+            `✅ 成功通过试用期！\\n🎉 正式转正\\n📈 工作稳定性提升`, true)
+        } else {
+          person.occupation = null
+          person.income = 0
+          person.jobSeeking = true
+          person.psyche = Math.max(0, (person.psyche || 50) - 8)
+          this.showEventResult(person, '试用期失败', 
+            `😞 试用期未能转正\\n💼 需要重新找工作\\n😔 心理健康受挫`, false)
+        }
+        break
+        
+      default:
+        console.log(`未知的新事件特殊效果: ${special}`)
+        break
+    }
+  },
+  
+  // 判断是否为学习类事件
+  isStudyEvent(option, eventType) {
+    const studyEvents = ['课外补习']
+    const studyOptions = ['常规补习', '奥数', '兴趣班', '一对一私教']
+    return studyEvents.includes(eventType) && studyOptions.some(opt => option.text.includes(opt))
+  },
+  
+  // 获取学习小时数
+  getStudyHours(option) {
+    if (option.text.includes('奥数')) return CONFIG.study.tutoring.olympiad
+    if (option.text.includes('常规补习')) return CONFIG.study.tutoring.regular
+    if (option.text.includes('兴趣班')) return CONFIG.study.tutoring.hobby
+    if (option.text.includes('一对一私教')) return CONFIG.study.tutoring.private
+    return 0
   },
   
   // 处理特殊效果
@@ -1102,6 +1520,7 @@ export const gameStore = reactive({
           person.occupation = '企业家'
           const newIncome = person.income + 100000
           person.income = newIncome
+          person.flags.entrepreneurYears = 0 // 设置企业家年限标记
           this.showEventResult(person, '中年创业', 
             `🚀 创业成功！\n💼 转型为企业家\n💰 收入增加：10万元\n📈 年收入：${newIncome.toLocaleString()}元`, true)
         } else {
@@ -1118,12 +1537,7 @@ export const gameStore = reactive({
         this.showEventResult(person, '中年危机', 
           `😴 选择混日子\n📉 收入下降：${decreaseAmount.toLocaleString()}元\n💼 新年收入：${person.income.toLocaleString()}元\n⏰ 职业生涯停滞不前`, false)
         break
-      case 'retire':
-        person.income = 50000 // 养老金
-        break
-      case 'workMore':
-        person.income = 80000
-        break
+      // 退休处理已移到 getImportantEvents 中自动执行
       case 'baby1':
         this.createBaby(person, 1)
         break
@@ -1201,20 +1615,27 @@ export const gameStore = reactive({
         break
       case 'college':
         if (option.majorData) {
-          const { schoolLevel, major } = option.majorData
+          const { schoolLevel, major, studyRegion } = option.majorData
           person.schoolLevel = schoolLevel
           person.major = major
           person.education = schoolLevel + '大学'
+          // 个人学习地域（影响后续校招/实习与第一份工作地区偏好）
+          person.region = studyRegion
+          // 可提示：已被外地院校录取/在本地上大学
+          this.showEventResult(person, '录取', `前往 ${studyRegion} 上大学（不影响家庭常住地）`, true)
         }
         break
       case 'startJobSeeking':
         person.jobSeeking = true
         break
       case 'gradSchool':
-        const successRate = person.schoolLevel === '双非' ? 0.4 : 
-                           person.schoolLevel === '211' ? 0.65 : 
-                           person.schoolLevel === '985' ? 0.9 : 0.3
-        if (Math.random() < successRate) {
+        // 基于 competitiveness / 科研 / 干部 / 压力 / 学校层级
+        const gradBase = 0.15 + (person.competitiveness - 50) / 200
+        const tier = (person.flags?.researchTier || 0) * 0.12 + (person.flags?.leaderTier || 0) * 0.05
+        const band = person.schoolLevel === '985' ? 0.28 : person.schoolLevel === '211' ? 0.16 : person.schoolLevel === '双非' ? 0.06 : 0
+        const stressPenalty = Math.max(0, person.strain - 70) / 200
+        const finalSuccessRate = Math.max(0, Math.min(0.95, gradBase + tier + band - stressPenalty))
+        if (Math.random() < finalSuccessRate) {
           person.education = '硕士在读'
           person.intelligence += 3
           // 记录入学年份，用于两年后毕业
@@ -1230,27 +1651,45 @@ export const gameStore = reactive({
         break
       case 'applyJob':
         if (option.jobData) {
-          const { jobName, successRate } = option.jobData
-          if (Math.random() < successRate) {
+          const { jobName, successRate, targetRegion } = option.jobData
+          const career = CAREERS[jobName]
+          // 行业景气度影响求职成功率
+          const industryMul = getMultiplier(career.cycleCategory, this.world)
+          const adjustedSuccessRate = Math.max(0.01, Math.min(0.95, successRate * Math.max(0.6, industryMul)))
+          
+          if (Math.random() < adjustedSuccessRate) {
             person.occupation = jobName
             person.jobSeeking = false
-            const career = CAREERS[jobName]
-            let baseSalary = career.minSalary + (person.education === '硕士' ? 30000 : 0)
-            
-            // 辍学薪资惩罚
-            if (person.education === '初中') {
-              baseSalary = baseSalary / 2
-            } else if (person.education === '高中') {
-              baseSalary = baseSalary / 1.5
+            const region = targetRegion || (this.familyAssets?.housing?.regionType || 'city')
+            person.income = calcStartingSalaryNew(person, jobName, region, CAREERS)
+            person.workYears = 0
+
+            // 个人工作地域更新（先改个人）
+            person.region = region
+
+            // 若已婚并与家庭常住地不同 -> 弹"是否全家迁移？"
+            const familyRegion = this.familyAssets?.housing?.regionType || 'city'
+            if (person.partner && region !== familyRegion){
+              this.currentEvent = {
+                person, type:'就业异地', ui:'modal', icon:'🧭',
+                title:'异地工作选择',
+                text:`你获得了 ${region} 的岗位机会。是否全家一起迁移？`,
+                options: [
+                  { text:'我先去，家庭不动', cost:0, effects:{ psyche:-1, strain:+2 }, special:'job_relocate_self' },
+                  { text:'全家一起迁移',     cost:0, effects:{}, special:'job_relocate_family', targetRegion:region },
+                  { text:'放弃机会',         cost:0, effects:{ unemployed:true }, special:'job_relocate_decline' }
+                ]
+              }
+              this.isEventActive = true
+            } else {
+              // 正常结果提示
+              this.showEventResult(person, '求职', `🎉 入职 ${jobName} @${region}\n年薪：${person.income.toLocaleString()} 元`, true)
             }
-            
-            person.income = Math.floor(baseSalary)
-            person.workYears = 1
-            this.showEventResult(person, '求职', 
-              `🎉 成功入职${jobName}！\n💰 年薪：${person.income.toLocaleString()}元\n📈 职业生涯开始！`, true)
           } else {
-            this.showEventResult(person, '求职', 
-              `😔 求职失败\n💼 继续寻找工作机会\n🔥 不要放弃，坚持就是胜利！`, false)
+            person.flags.jobFailCount = (person.flags.jobFailCount || 0) + 1
+            person.psyche = Math.max(0, (person.psyche || 50) - 3)
+            person.strain = Math.min(100, (person.strain || 50) + 2)
+            this.showEventResult(person, '求职', '😔 求职失败，继续加油', false)
           }
         }
         break
@@ -1281,13 +1720,288 @@ export const gameStore = reactive({
             `💔 创业失败\n💡 积累了宝贵经验\n🎓 继续专心学业`, false)
         }
         break
-      case 'retire':
+      // 新经济系统住房事件处理
+      case 'buyHouse':
+        if (option.housingData) {
+          const { schoolTier } = option.housingData
+          const regionType = this.worldState.regionType
+          const unitPrice = REGION_UNIT_PRICE[regionType] || 25000
+          const area = 80
+          const multiplier = schoolTier === 'avg' ? SCHOOL_ZONE_PREMIUM : 
+                            schoolTier === 'good' ? SCHOOL_ZONE_PREMIUM * 1.4 : 1.0
+          const totalPrice = Math.round(unitPrice * area * multiplier)
+          
+          // 使用住房系统的购买逻辑
+          const result = buyHouse(this, regionType, area, schoolTier !== 'none')
+          if (result.ok) {
+            person.psyche = Math.min(100, (person.psyche || 50) + 3)
+            
+            // 清除结婚住房选择标记
+            if (person.flags?.needHousingAfterMarriage) {
+              delete person.flags.needHousingAfterMarriage
+            }
+            
+            this.showEventResult(person, '购房成功', 
+              `🏠 成功购买住房！\n📍 位置：${this.worldState.cityName}\n🎓 学区等级：${schoolTier}\n💰 总价：${Math.round(totalPrice/10000)}万元\n🏦 开始月供生活`, true)
+          } else {
+            this.showEventResult(person, '购房失败', result.reason, false)
+          }
+        }
+        break
+        
+      case 'rentHouse':
+        if (option.housingData) {
+          const { schoolTier } = option.housingData
+          const regionType = this.worldState.regionType
+          
+          // 使用住房系统的租房逻辑
+          setupRent(this, regionType, 80)
+          
+          // 更新学区信息
+          this.familyAssets.housing.schoolTier = schoolTier
+          
+          person.psyche = Math.max(0, (person.psyche || 50) - 1)
+          
+          // 清除结婚住房选择标记
+          if (person.flags?.needHousingAfterMarriage) {
+            delete person.flags.needHousingAfterMarriage
+          }
+          
+          const rentBase = REGION_RENT_BASE[regionType] || 2400
+          const multiplier = schoolTier === 'avg' ? 1.3 : 1.0
+          const yearlyRent = Math.round(rentBase * 12 * multiplier)
+          
+          this.showEventResult(person, '租房成功', 
+            `🏠 成功租赁住房！\n📍 位置：${this.worldState.cityName}\n🎓 学区等级：${schoolTier}\n💰 年租金：${yearlyRent.toLocaleString()}元`, true)
+        }
+        break
+        
+      case 'relocateToMega':
+        this.worldState.regionType = 'mega'
+        this.worldState.cityName = getRandomCity('mega')
+        // 迁居后需要重新安排住房
+        if (this.familyAssets.housing.mode !== 'none') {
+          this.familyAssets.housing.regionType = 'mega'
+          this.familyAssets.housing.cityName = this.worldState.cityName
+          // 房价重新计算
+          this.familyAssets.housing.currentPrice = calculateHousePrice('mega', this.familyAssets.housing.schoolTier, 1.0)
+        }
+        this.persons.forEach(p => {
+          p.strain = Math.min(100, (p.strain || 50) + 10)
+        })
+        this.showEventResult(person, '城市迁移', 
+          `🌆 成功迁移到${this.worldState.cityName}！\n💼 收入机会增加，生活成本上升\n📈 全家压力+10`, true)
+        break
+        
+      case 'relocateToStable':
+        const relocateTargetRegion = option.targetRegion || 'city'
+        this.worldState.regionType = relocateTargetRegion
+        this.worldState.cityName = getRandomCity(relocateTargetRegion)
+        if (this.familyAssets.housing.mode !== 'none') {
+          this.familyAssets.housing.regionType = relocateTargetRegion
+          this.familyAssets.housing.cityName = this.worldState.cityName
+          this.familyAssets.housing.currentPrice = calculateHousePrice(relocateTargetRegion, this.familyAssets.housing.schoolTier, 1.0)
+        }
+        this.persons.forEach(p => {
+          p.strain = Math.max(0, (p.strain || 50) - 5)
+          p.psyche = Math.min(100, (p.psyche || 50) + 3)
+        })
+        this.showEventResult(person, '城市迁移', 
+          `🏡 成功迁移到${this.worldState.cityName}！\n😌 生活压力降低，追求稳定发展\n📈 全家压力-5，心理健康+3`, true)
+        break
+        
+      case 'upgradeSchoolTier':
+        if (option.targetTier) {
+          const housing = this.familyAssets.housing
+          housing.schoolTier = option.targetTier
+          housing.currentPrice = calculateHousePrice(housing.regionType, option.targetTier, housing.priceIndex)
+          this.showEventResult(person, '学区升级', 
+            `🎓 学区升级成功！\n📚 新学区等级：${option.targetTier}\n👶 有利于子女教育发展`, true)
+        }
+        break
+        
+      case 'downgradeSchoolTier':
+        if (option.targetTier !== undefined) {
+          const housing = this.familyAssets.housing
+          housing.schoolTier = option.targetTier
+          housing.currentPrice = calculateHousePrice(housing.regionType, option.targetTier, housing.priceIndex)
+          if (option.cashBack) {
+            this.globalEconomy += option.cashBack
+          }
+          this.showEventResult(person, '学区调整', 
+            `💰 学区调整完成！\n💵 获得现金：${option.cashBack?.toLocaleString() || 0}元\n📚 学区等级调整为：${option.targetTier}`, true)
+        }
+        break
+        
+      case 'investmentProperty':
+        // 简化处理：增加年度被动收入
+        person.passiveIncome = (person.passiveIncome || 0) + Math.round(option.cost * 0.03) // 3%年收益
+        this.showEventResult(person, '投资房产', 
+          `🏢 投资房产成功！\n💰 预期年租金收益：${Math.round(option.cost * 0.03).toLocaleString()}元\n📈 增加被动收入来源`, true)
+        break
+        
+      case 'upgradeRentToBuy':
+        // 租转买
+        const regionType2 = this.worldState.regionType
+        const result2 = buyHouse(this, regionType2, 80, false)
+        if (result2.ok) {
+          this.showEventResult(person, '租转买成功', 
+            `🏠 成功从租房转为购房！\n💰 告别房租，开始月供\n📈 房产资产增加`, true)
+        } else {
+          this.showEventResult(person, '租转买失败', result2.reason, false)
+        }
+        break
+        
+      case 'upgradeArea':
+        // 面积升级
+        if (this.familyAssets.housing.mode === 'own') {
+          this.familyAssets.housing.area = Math.min(150, (this.familyAssets.housing.area || 80) + 30)
+          this.showEventResult(person, '房屋扩容', 
+            `🏠 成功升级到更大面积住房！\n📐 新面积：${this.familyAssets.housing.area}平米\n😌 居住体验显著提升`, true)
+        }
+        break
+        
+      // 就业异地迁移处理
+      case 'job_relocate_self':
+        // 已在上一步把 person.region 改到工作城市；家庭不动，仅提示
+        this.showEventResult(person, '异地', '你选择先异地工作（心理-1 压力+2）', true)
+        break
+        
+      case 'job_relocate_family':
+        // 触发家庭迁移流程
+        const jobTargetRegion = option.targetRegion || (this.familyAssets?.housing?.regionType || 'city')
+        try {
+          proposeFamilyMove(this, '工作机会', jobTargetRegion)
+        } catch (error) {
+          console.error('家庭迁移失败:', error)
+        }
+        break
+        
+      case 'job_relocate_decline':
+        person.occupation = null
+        person.jobSeeking = true
+        this.showEventResult(person, '选择', '你放弃了异地机会，继续寻找本地岗位', false)
+        break
+        
+      // 家庭迁移执行
+      case 'move_rent':
+      case 'move_sell':
+      case 'move_bridge':
+      case 'move_cancel':
+        const moveTarget = option.target // region
+        try {
+          applyFamilyMove(this, special, moveTarget)
+        } catch (error) {
+          console.error('家庭迁移应用失败:', error)
+        }
+        if (special === 'move_cancel'){
+          this.showEventResult(person,'迁移','已取消本次迁移', false)
+        } else {
+          this.showEventResult(person,'迁移','家庭居住地已更新/设置', true)
+        }
+        break
+        
+      // 迁移相关事件处理
+      case 'mig_return':
+        const currentRegion = this.familyAssets?.housing?.regionType || this.familyAssets?.housing?.region || 'city'
+        const targetReturn = suggestTargetRegion(currentRegion, 'return') || currentRegion
+        try {
+          proposeFamilyMove(this, '养老回流', targetReturn)
+        } catch (error) {
+          console.error('养老回流迁移失败:', error)
+        }
+        break
+        
+      case 'mig_cost_consider':
+        const current2 = this.familyAssets?.housing?.regionType || this.familyAssets?.housing?.region || 'city'
+        // 反向选择成本更低一级的地区
+        const map = { mega:'city', city:'county', county:'rural', rural:'rural' }
+        const targetCost = map[current2] || current2
+        try {
+          proposeFamilyMove(this, '生活成本压力', targetCost)
+        } catch (error) {
+          console.error('成本压力迁移失败:', error)
+        }
+        break
+        
+      // 弹性退休系统
+      case 'retire_early_confirm':
+        // 提前退休：立刻退休，养老金按年龄折减（60岁前最多-20%）
+        const age = person.age
+        const k = Math.max(0.8, 1 - Math.max(0, (60 - age))*0.04) // 60→1.0, 55→0.8
+        const pensionRegion = this.familyAssets?.housing?.regionType || this.familyAssets?.housing?.region || 'city'
+        const pensionBase = PENSION.base * (PENSION.regionK[pensionRegion]||1)
         person.isRetired = true
-        person.income = Math.floor(person.income / 4)
+        person.income = Math.round(Math.min(PENSION.cap, Math.max(PENSION.floor, pensionBase*k)))
+        person.workYears = 0
+        this.showEventResult(person, '提前退休',
+          `从今年起领取养老金：${person.income.toLocaleString()} 元/年（系数×${k.toFixed(2)}）`, true)
         break
-      case 'keepWorking':
-        person.income = Math.floor(person.income / 4)
+        
+      case 'retire_phased':
+        if (!person.flags) person.flags = {}
+        person.flags.phasedRetire = true
+        this.showEventResult(person, '渐进退休', '已切换到半工时模式，压力减轻', true)
         break
+        
+      case 'rehire_accept':
+        if (!person.flags) person.flags = {}
+        person.flags.rehired = true
+        this.showEventResult(person, '返聘', '接受返聘，将获得额外收入补贴', true)
+        break
+        
+      // 老年健康事件处理（新增）
+      case 'chronic_active':
+        if (!person.flags) person.flags = {}
+        person.flags.chronicCare = 'active'
+        this.showEventResult(person, '慢性疾病', 
+          `📋 选择积极治疗方案\n🏥 定期复查和用药\n💪 生活质量相对较好\n💰 医疗费用较高`, true)
+        break
+        
+      case 'chronic_conservative':
+        if (!person.flags) person.flags = {}
+        person.flags.chronicCare = 'conservative'
+        this.showEventResult(person, '慢性疾病', 
+          `🏠 选择保守治疗\n💊 基础药物控制\n😌 减少医疗负担\n⚠️ 病情进展相对较快`, true)
+        break
+        
+      case 'fracture_surgery':
+        if (!person.flags) person.flags = {}
+        person.flags.fractureStatus = 'surgery'
+        this.showEventResult(person, '骨折治疗', 
+          `🏥 手术治疗完成\n🦴 骨折修复良好\n🚶 恢复期需要康复训练\n💰 医疗费用较高但效果好`, true)
+        break
+        
+      case 'fracture_conservative':
+        if (!person.flags) person.flags = {}
+        person.flags.fractureStatus = 'conservative'
+        this.showEventResult(person, '骨折治疗', 
+          `🛏️ 选择保守治疗\n⏰ 恢复时间较长\n😔 可能留下功能障碍\n💸 费用相对较低`, false)
+        break
+        
+      case 'hospice_home':
+        if (!person.flags) person.flags = {}
+        person.flags.hospiceCare = 'home'
+        person.strain = Math.max(0, (person.strain || 50) - 10)
+        this.showEventResult(person, '安宁疗护', 
+          `🏠 选择居家安宁疗护\n👨‍👩‍👧‍👦 家人陪伴\n😌 在熟悉环境中度过\n💕 心理慰藉效果最佳`, true)
+        break
+        
+      case 'hospice_hospital':
+        if (!person.flags) person.flags = {}
+        person.flags.hospiceCare = 'hospital'
+        this.showEventResult(person, '安宁疗护', 
+          `🏥 选择医院安宁疗护\n👨‍⚕️ 专业医护团队\n💊 症状控制较好\n🩺 医疗保障充分`, true)
+        break
+        
+      case 'hospice_basic':
+        if (!person.flags) person.flags = {}
+        person.flags.hospiceCare = 'basic'
+        this.showEventResult(person, '安宁疗护', 
+          `🏠 选择基础护理\n💰 费用可控\n😐 护理水平有限\n😔 心理支持不足`, false)
+        break
+        
+      // 退休相关的case已删除，现在自动处理
     }
     
     // 企业家增长逻辑已移到 advanceYear()
@@ -1303,6 +2017,18 @@ export const gameStore = reactive({
       health: partnerData.health,
       charm: partnerData.charm,
       intelligence: partnerData.intelligence,
+      // 新增属性
+      stability: this.generateNormalDistribution(50, 15),
+      motivation: this.generateNormalDistribution(50, 15),
+      creativity: this.generateNormalDistribution(50, 15),
+      stress: 0,
+      cumStudyHours: 0,
+      satisfaction: 50,
+      // 新经济系统属性
+      psyche: 50, // 心理健康
+      strain: 30, // 生活压力
+      competitiveness: 0, // 竞争力（自动计算）
+      // 原有属性
       economicContribution: 0,
       income: Math.floor(Math.random() * 80000) + 40000,
       isAlive: true,
@@ -1327,6 +2053,11 @@ export const gameStore = reactive({
     if (!partner.flags) partner.flags = {}
     person.flags.marriageYear = this.currentYear
     partner.flags.marriageYear = this.currentYear
+    
+    // 结婚后自动触发住房选择
+    if (this.familyAssets.housing.mode === 'none') {
+      person.flags.needHousingAfterMarriage = true
+    }
     
     uni.showToast({
       title: `${person.name}结婚了！`,
@@ -1500,6 +2231,23 @@ export const gameStore = reactive({
         health: this.generateBabyAttribute(parent.health, partner.health),
         charm: this.generateBabyAttribute(parent.charm, partner.charm),
         intelligence: this.generateBabyAttribute(parent.intelligence, partner.intelligence),
+        // 新增属性
+        stability: this.generateBabyAttribute(parent.stability || 50, partner.stability || 50),
+        motivation: this.generateBabyAttribute(parent.motivation || 50, partner.motivation || 50),
+        creativity: this.generateBabyAttribute(parent.creativity || 50, partner.creativity || 50),
+        stress: 0,
+        cumStudyHours: 0,
+        satisfaction: 50,
+        // 新经济系统属性
+        psyche: 60, // 婴儿心理健康较好
+        strain: 0, // 婴儿无压力
+        competitiveness: 0,
+        ambition: this.generateBabyAttribute(parent.ambition || 50, partner.ambition || 50),
+        // 求职偏好初始为0
+        prefGov: 0,
+        prefCorp: 0,
+        prefStartup: 0,
+        // 原有属性
         economicContribution: 0,
         income: 0,
         isAlive: true,
@@ -1507,14 +2255,28 @@ export const gameStore = reactive({
         children: [],
         occupation: null,
         education: '未入学',
+        schoolLevel: null,
+        major: null,
+        workYears: 0,
+        jobSeeking: false,
+        lastPromotionYear: 0,
+        isRetired: false,
         parents: [parent, partner],
-        flags: {}
+        flags: {
+          internTier: 0,
+          researchTier: 0,
+          leaderTier: 0,
+          jobFailCount: 0
+        }
       }
       
       // 确保属性在合理范围内
       baby.health = Math.max(60, Math.min(100, baby.health))
       baby.charm = Math.max(60, Math.min(100, baby.charm))
       baby.intelligence = Math.max(60, Math.min(100, baby.intelligence))
+      baby.stability = Math.max(30, Math.min(100, baby.stability))
+      baby.motivation = Math.max(30, Math.min(100, baby.motivation))
+      baby.creativity = Math.max(30, Math.min(100, baby.creativity))
       
       // 添加到父母的孩子列表
       parent.children.push(baby)
@@ -1539,14 +2301,137 @@ export const gameStore = reactive({
     }
   },
   
-  // 更新全局经济
-  updateGlobalEconomy() {
-    const totalContribution = this.persons
-      .filter(p => p.isAlive)
-      .reduce((sum, p) => sum + p.economicContribution, 0)
-    this.globalEconomy += totalContribution
-  },
   
+  // 检查年度死亡概率
+  checkMortality(person) {
+    if (!person.isAlive) return
+    const age = person.age
+    const h = person.health
+    // 现有：健康<=0 直接死亡
+    if (h <= 0) { 
+      person.isAlive = false
+      this.handleDeath(person, 'health_zero')
+      return 
+    }
+    // 新增：按年龄×健康修正概率死亡
+    const pAge = MORTALITY.baseAge(age)
+    const pH   = MORTALITY.healthFactor(h)
+    const pAcc = MORTALITY.accident || 0
+    const pYear = pAge * pH + pAcc
+    if (Math.random() < pYear){
+      person.isAlive = false
+      const cause = (Math.random() < pAcc/(pYear+1e-9)) ? 'accident' : 'natural'
+      this.handleDeath(person, cause)
+    }
+  },
+
+  // 处理死亡：现金流、心理打击、家族延续
+  handleDeath(person, cause = 'natural') {
+    if (!person) return
+    try {
+      // 1) 丧葬支出（取家庭居住地域）
+      const region = this.familyAssets?.housing?.regionType || this.familyAssets?.housing?.region || 'city'
+      const funeral = FUNERAL_COST?.[region] || 20000
+      this.globalEconomy = (this.globalEconomy || 0) - funeral
+
+      // 2) 家人心理影响（伴侣/子女）
+      const impact = { psycheDrop: cause==='accident' ? 12 : 8, strainUp: cause==='accident' ? 6 : 4 }
+      this.persons.forEach(p => {
+        if (!p.isAlive) return
+        if (p.partner && p.partner.id === person.id){
+          p.psyche = Math.max(0, (p.psyche||50) - impact.psycheDrop)
+          p.strain = Math.min(100, (p.strain||10) + impact.strainUp)
+          p.partner = null
+        }
+        if ((p.parents||[]).some(pp=>pp.id===person.id)){
+          p.psyche = Math.max(0, (p.psyche||50) - Math.floor(impact.psycheDrop*0.6))
+          p.strain = Math.min(100, (p.strain||10) + Math.floor(impact.strainUp*0.5))
+        }
+      })
+
+      // 3) 处理遗嘱：你已有"立遗嘱"事件，若 person.flags.will === 'inheritHouseToChild' 等，可在此兑现
+      if (person.flags?.will==='inheritHouseToChild'){
+        // 家庭资产是公有模型，默认不拆分；可做一个"给长子教育基金"象征性转账
+        const grant = 20000
+        this.globalEconomy -= grant
+        const heir = (person.children||[])[0]
+        if (heir){ 
+          if (!heir.flags) heir.flags = {}
+          heir.flags.eduGrant = (heir.flags?.eduGrant||0) + grant 
+        }
+      }
+
+      // 4) 移除（或保留在 persons 标记 isAlive=false）
+      person.isAlive = false
+      person.occupation = null
+      person.income = 0
+
+      // 5) 弹窗
+      this.showEventResult(person, '讣告',
+        `🕯️ ${person.name || '未知'}（${person.age || 0}岁）已离世。\n`+
+        `原因：${cause==='accident'?'意外':'自然'}。\n`+
+        `丧葬支出：${funeral.toLocaleString()} 元。`, false)
+    } catch (error) {
+      console.error('处理死亡失败:', error)
+      // 即使出错也要确保人物死亡状态
+      if (person) person.isAlive = false
+    }
+  },
+
+  // 检查房贷违约风险
+  checkMortgageArrears() {
+    const housing = this.familyAssets?.housing
+    if (!housing || housing.mode !== 'own' || !housing.mortgage) return
+    
+    const arrears = housing.mortgage.arrears || 0
+    if (arrears >= 3) { // 连续3年逾期触发法拍
+      this.triggerForeclosure()
+    } else if (arrears >= 1) {
+      // 逾期1-2年给出警告
+      const mainPerson = this.persons.find(p => p.isAlive) || {}
+      this.showEventResult(mainPerson, '房贷逾期警告', 
+        `⚠️ 房贷已逾期${arrears}年\n💳 请尽快缴清欠款\n🏠 连续逾期3年将面临法拍风险\n📞 建议联系银行协商还款计划`, false)
+    }
+  },
+
+  // 触发房屋法拍
+  triggerForeclosure() {
+    const housing = this.familyAssets.housing
+    const mainPerson = this.persons.find(p => p.isAlive) || {}
+    
+    // 法拍价格通常为市场价70-85%
+    const currentMarketPrice = housing.price || housing.currentPrice || 2000000
+    const foreclosurePrice = Math.round(currentMarketPrice * (0.70 + Math.random() * 0.15))
+    const remainingDebt = (housing.mortgage?.principal || 0) * ((housing.mortgage?.years || 25) / (MORTGAGE_YEARS || 25))
+    const netProceeds = Math.max(0, foreclosurePrice - remainingDebt)
+    
+    // 房屋被收回，获得净收益（如果有的话）
+    this.globalEconomy += netProceeds
+    
+    // 重置住房状态
+    this.familyAssets.housing = {
+      mode: 'none',
+      regionType: housing.regionType,
+      cityName: housing.cityName,
+      schoolTier: 'none',
+      area: 80,
+      buyYear: 0,
+      currentPrice: 0,
+      priceIndex: 1.0
+    }
+    
+    // 对所有家庭成员造成心理冲击
+    this.persons.forEach(p => {
+      if (p.isAlive) {
+        p.psyche = Math.max(0, (p.psyche || 50) - 15)
+        p.strain = Math.min(100, (p.strain || 50) + 20)
+      }
+    })
+    
+    this.showEventResult(mainPerson, '房屋法拍', 
+      `🏠 房屋因连续逾期被法院拍卖\n💰 拍卖价：${Math.round(foreclosurePrice/10000)}万元\n💵 净得：${Math.round(netProceeds/10000)}万元\n😰 全家心理健康-15，压力+20\n🏘️ 需要重新安排住房`, false)
+  },
+
   // 检查破产
   checkBankruptcy() {
     if (this.globalEconomy <= -300000) { // 负债30万破产
@@ -1645,11 +2530,134 @@ export const gameStore = reactive({
         owned: false,
         purchasePrice: 0,
         purchaseYear: 0
+      },
+      housing: {
+        mode: 'none',
+        regionType: 'city',
+        cityName: '合肥',
+        schoolTier: 'none',
+        buyYear: 0,
+        currentPrice: 0,
+        priceIndex: 1.0
       }
+    }
+    
+    // 重置世界状态
+    this.worldState = {
+      regionType: 'city',
+      cityName: getRandomCity('city'),
+      economicCycle: 1.0,
+      useNewEconomics: true
     }
     
     // 重新初始化
     this.initGame()
+  },
+  
+
+  // 新事件系统 v2.0 核心处理方法
+  checkNewEventSystem(person) {
+    
+    const regionType = this.worldState.regionType || 'city'
+    const candidates = []
+    
+    // 扫描所有事件池中的事件
+    EVENT_POOL.forEach(event => {
+      // 检查受众和年龄限制
+      if (!fitsAudience(event, person) || !fitsAge(event, person)) return
+      
+      // 检查触发条件
+      if (!event.when(person, this)) return
+      
+      // 检查冷却时间
+      const lastTrigger = this.eventCooldowns[event.id] || 0
+      if (this.currentYear - lastTrigger < event.cooldownYears) return
+      
+      // 计算修正后概率
+      const baseProb = EVENT_BASE_PROBABILITIES[event.id] || 0.1
+      const adjustedProb = applyAdjustments(event.id, baseProb, person, this, regionType)
+      
+      candidates.push({
+        event: event,
+        probability: adjustedProb
+      })
+    })
+    
+    // 按重要性分组处理
+    const majorCandidates = candidates.filter(c => c.event.importance === 'major')
+    const normalCandidates = candidates.filter(c => c.event.importance === 'normal')
+    
+    // 限流：同年最多1个重要事件 + 2个普通事件
+    if (this.yearlyEventCount.major < 1 && majorCandidates.length > 0) {
+      this.processCandidates(majorCandidates, person, 'major')
+    }
+    
+    if (this.yearlyEventCount.normal < 2 && normalCandidates.length > 0) {
+      this.processCandidates(normalCandidates, person, 'normal')
+    }
+  },
+  
+  // 处理候选事件
+  processCandidates(candidates, person, importance) {
+    // 简单抽取：按概率随机选择一个
+    for (const candidate of candidates) {
+      if (Math.random() < candidate.probability) {
+        this.triggerNewEvent(candidate.event, person)
+        this.yearlyEventCount[importance]++
+        break // 每次只触发一个
+      }
+    }
+  },
+  
+  // 触发新事件
+  triggerNewEvent(event, person) {
+    // 记录冷却时间
+    this.eventCooldowns[event.id] = this.currentYear
+    
+    // 设置当前事件状态
+    this.currentEvent = {
+      person: person,
+      type: event.title,
+      eventData: event, // 保存完整事件数据
+      options: event.choices.map(choice => ({
+        text: choice.text,
+        effects: choice.effects,
+        special: choice.special || null
+      }))
+    }
+    this.isEventActive = true
+    
+    // 根据UI类型显示不同界面
+    if (event.ui === 'modal') {
+      this.showEventModal(event, person)
+    } else {
+      this.showEventSheet(event, person)
+    }
+  },
+  
+  // 显示重要事件模态框
+  showEventModal(event, person) {
+    // 暂停游戏
+    this.isPaused = true
+    
+    // 显示模态框 (uni.showModal 只能显示确认/取消，需要自定义处理)
+    uni.showModal({
+      title: `${event.icon} ${event.title}`,
+      content: `${person.name}\n\n${event.text}\n\n请在游戏界面选择具体选项`,
+      showCancel: false,
+      confirmText: '查看选项',
+      success: () => {
+        // 用户点击确认后，事件选择界面已经显示
+        // 这里不需要额外处理，因为 currentEvent 已经设置
+      }
+    })
+  },
+  
+  // 显示普通事件底部弹层
+  showEventSheet(event, person) {
+    // 对于普通事件，直接显示在 EventModal 组件中
+    // 不暂停游戏，允许用户稍后处理
+    console.log(`普通事件触发: ${event.title} for ${person.name}`)
   },
   
   // 暂停/继续游戏
@@ -1668,7 +2676,7 @@ export const gameStore = reactive({
   
   // 生成唯一ID
   generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2)
+    return Date.now().toString(36) + Math.random().toString(36).substring(2)
   },
   
   // 保存游戏到云端
@@ -1767,6 +2775,519 @@ export const gameStore = reactive({
     }
   },
   
+  // 获取户主（家庭级事件的触发者）
+  getHouseholdHead() {
+    const alive = this.persons.filter(p => p.isAlive)
+    const working = alive.filter(p => p.occupation)
+    if (working.length) return working.sort((a,b) => b.age - a.age)[0]
+    return alive.sort((a,b) => b.age - a.age)[0]
+  },
+
+  // 构建并入队当年随机事件
+  buildAndQueueRandomEvents() {
+    const regionType = this.worldState?.regionType || 'city'
+    const majors = []
+    const normals = []
+
+    // 家庭级事件处理（只对户主触发一次）
+    const head = this.getHouseholdHead()
+    if (head) {
+      const familyEligible = EVENT_POOL.filter(e => 
+        FAMILY_LEVEL.has(e.id) &&
+        fitsAudience(e, head) &&
+        fitsAge(e, head) &&
+        e.when(head, this) &&
+        (!this.eventCooldowns[e.id] || this.currentYear - this.eventCooldowns[e.id] >= (e.cooldownYears || 1))
+      )
+
+      if (familyEligible.length) {
+        const pick = familyEligible[Math.floor(Math.random() * familyEligible.length)]
+        // 直接应用概率修正
+        const baseProb = EVENT_BASE_PROBABILITIES[pick.id] || 0.1
+        const adjustedProb = applyAdjustments(pick.id, baseProb, head, this, regionType)
+        
+        if (Math.random() < adjustedProb) {
+          this.currentEventQueue.push({ key: pick.id, personId: head.id })
+          this.eventCooldowns[pick.id] = this.currentYear
+        }
+      }
+    }
+
+    // 为每个活着的人，生成候选随机事件（排除家庭级事件）
+    this.persons.filter(p => p.isAlive).forEach(person => {
+      // 从 EVENT_POOL 里找满足 when 的，但排除家庭级事件
+      const eligible = EVENT_POOL.filter(e => 
+        e.when && 
+        fitsAudience(e, person) &&
+        fitsAge(e, person) &&
+        e.when(person, this) && 
+        !FAMILY_LEVEL.has(e.id)
+      )
+
+      // 计算修正后概率并抽样
+      const sampled = eligible.filter(evt => {
+        // 检查冷却时间
+        const lastTrigger = this.eventCooldowns[evt.id] || 0
+        if (this.currentYear - lastTrigger < (evt.cooldownYears || 1)) return false
+        
+        const baseProb = EVENT_BASE_PROBABILITIES[evt.id] || 0.1
+        const p = applyAdjustments(evt.id, baseProb, person, this, regionType)
+        return Math.random() < p
+      })
+
+      // 根据重要度分组
+      sampled.forEach(evt => {
+        const item = { key: evt.id, personId: person.id }
+        if (evt.importance === 'major') majors.push(item)
+        else normals.push(item)
+      })
+    })
+
+    // 限流：1 个重要 + 2 个普通
+    const picked = []
+    if (majors.length > 0) {
+      const randomMajor = majors[Math.floor(Math.random() * majors.length)]
+      picked.push(randomMajor)
+    }
+    
+    // 选择最多2个普通事件
+    for (let i = 0; i < 2 && normals.length > 0; i++) {
+      const randomIndex = Math.floor(Math.random() * normals.length)
+      picked.push(normals.splice(randomIndex, 1)[0])
+    }
+
+    // 写入队列（去重：按 key+personId）
+    const seen = new Set(this.currentEventQueue.map(e => e.key + '@' + e.personId))
+    picked.forEach(e => {
+      const sig = e.key + '@' + e.personId
+      if (!seen.has(sig)) {
+        this.currentEventQueue.push(e)
+      }
+    })
+  },
+
+  // 处理事件队列头部
+  processEventQueueHead() {
+    if (this.isEventActive) return // 已有事件阻塞判定
+    if (this.pendingNormalEvent || this.isNormalSheetOpen) return
+    if (this.currentEventQueue.length === 0) return
+
+    const item = this.currentEventQueue.shift() // {key, personId}
+    const person = this.persons.find(p => p.id === item.personId)
+    if (!person || !person.isAlive) return
+
+    const evt = EVENT_POOL.find(e => e.id === item.key)
+    if (!evt) return
+
+    // 标记冷却
+    this.eventCooldowns[evt.id] = this.currentYear
+
+    // 分重要度走不同 UI
+    if (evt.importance === 'major') {
+      // 重要事件：modal（阻塞）
+      this.triggerMajorEvent(evt, person)
+    } else {
+      // 普通事件：交给 bottom-sheet
+      this.triggerNormalEvent(evt, person)
+    }
+  },
+
+  // 触发重要事件（使用Modal）
+  triggerMajorEvent(evt, person) {
+    this.isEventActive = true
+    
+    // 动态选项生成
+    if (evt.dynamicChoices === "employment_offers") {
+      this.handleEmploymentOffersEvent(evt, person)
+      return
+    }
+    
+    const primary = evt.choices[0]
+    const secondary = evt.choices[1]
+    
+    uni.showModal({
+      title: `${evt.icon || '🔴'} ${evt.title}`,
+      content: `${person.name}\n\n${evt.text || ''}`,
+      cancelText: secondary ? secondary.text : '取消',
+      confirmText: primary ? primary.text : '确定',
+      success: (res) => {
+        const picked = res.confirm ? primary : secondary
+        if (picked) {
+          // 使用新的效果应用器
+          this.applyNewEventEffects(person, picked.effects)
+        }
+        
+        // 特殊处理高考事件
+        if (evt.id === 'hs_gaokao') {
+          this.handleGaokaoResult(person)
+        }
+        
+        this.isEventActive = false
+        // 继续处理队列
+        setTimeout(() => this.processEventQueueHead(), 100)
+      }
+    })
+  },
+
+  // 触发普通事件（使用底部弹层）
+  triggerNormalEvent(evt, person) {
+    this.pendingNormalEvent = {
+      ...evt,
+      personId: person.id,
+      personName: person.name
+    }
+    this.isNormalSheetOpen = true
+  },
+
+  // 处理普通事件选择
+  handleNormalEventChoice(choiceIndex) {
+    const evt = this.pendingNormalEvent
+    if (!evt) return
+    
+    const person = this.persons.find(p => p.id === evt.personId)
+    if (!person) return
+    
+    const choice = evt.choices[choiceIndex]
+    if (choice) {
+      // 使用新的效果应用器
+      this.applyNewEventEffects(person, choice.effects)
+      
+      // 事件动作钩子
+      if (choice?.meta?.action) {
+        this.handleEventAction(choice.meta.action, {
+          person,
+          choice,
+          event: evt
+        })
+      }
+    }
+    
+    this.pendingNormalEvent = null
+    this.isNormalSheetOpen = false
+    
+    // 继续处理队列
+    setTimeout(() => this.processEventQueueHead(), 100)
+  },
+
+  // 关闭普通事件（未选择）
+  closeNormalEvent() {
+    this.pendingNormalEvent = null
+    this.isNormalSheetOpen = false
+    
+    // 继续处理队列
+    setTimeout(() => this.processEventQueueHead(), 100)
+  },
+
+  // 处理高考结果
+  handleGaokaoResult(person) {
+    try {
+      const { score, percentile, tier } = calcGaokaoResult(person, this)
+      
+      // 落地：schoolLevel、education
+      person.schoolLevel = tier
+      person.education = tier + '大学'
+      
+      // 显示结果并进入专业选择
+      uni.showModal({
+        title: `🎓 高考结果：${tier}`,
+        content: `模拟分数：${score}（约第${percentile}百分位）\n可选择${tier}院校专业。`,
+        showCancel: false,
+        confirmText: '选择专业',
+        success: () => {
+          // 生成专业选择事件
+          const majorOptions = this.generateCollegeOptions(person)
+          this.currentEvent = { 
+            person, 
+            type: '高考', 
+            options: majorOptions 
+          }
+          this.isEventActive = true
+        }
+      })
+    } catch (error) {
+      console.error('高考结果处理失败:', error)
+      // 降级处理
+      person.schoolLevel = '二本'
+      person.education = '二本大学'
+    }
+  },
+
+  // 处理动态求职事件：生成个性化工作选择
+  handleEmploymentOffersEvent(evt, person) {
+    const regionType = this.worldState?.regionType || 'city'
+    
+    // 生成个性化求职选项
+    const jobOffers = generateJobOffers(person, regionType, CAREERS)
+    
+    // 生成选择列表，包含成功率和薪资预期
+    const dynamicChoices = jobOffers.map(jobName => {
+      const successRate = calcJobSuccess(person, jobName, regionType, CAREERS)
+      const expectedSalary = calcStartingSalary(person, jobName, regionType, CAREERS)
+      
+      return {
+        text: `申请${jobName} (成功率${Math.round(successRate * 100)}%, 预期薪资${Math.round(expectedSalary/10000)}万)`,
+        effects: {},
+        meta: { 
+          action: 'apply_offer',
+          jobName,
+          successRate,
+          expectedSalary
+        }
+      }
+    })
+    
+    // 添加"再考虑"选项
+    dynamicChoices.push({
+      text: '再考虑一下',
+      effects: { psyche: -1, strain: +1 },
+      meta: null
+    })
+    
+    // 设置到当前事件并显示
+    this.currentEvent = {
+      person: person,
+      type: evt.title,
+      eventData: { ...evt, choices: dynamicChoices },
+      options: dynamicChoices
+    }
+    
+    // 显示事件详情（uni.showModal只能显示两个按钮，实际选择在UI组件中处理）
+    uni.showModal({
+      title: `${evt.icon} ${evt.title}`,
+      content: `${person.name}\n\n根据你的履历，共生成${jobOffers.length}个求职机会\n请在界面中选择具体申请的岗位`,
+      showCancel: false,
+      confirmText: '查看选项',
+      success: () => {
+        // 选项已设置到currentEvent，UI组件会处理选择
+      }
+    })
+  },
+
+  // 事件动作钩子处理器
+  handleEventAction(actionType, context) {
+    const { person, choice } = context
+    
+    switch (actionType) {
+      case 'buy_house_view': {
+        // 住房购买决策：查看房源
+        const regionType = this.worldState.regionType
+        const schoolTiers = ['none', 'avg', 'good', 'top']
+        
+        let content = `🏠 ${this.worldState.cityName}地区房源：\n\n`
+        schoolTiers.forEach(tier => {
+          const price = calculateHousePrice(regionType, tier, 1.0)
+          const tierName = { 'none': '无学区', 'avg': '普通学区', 'good': '优质学区', 'top': '顶级学区' }[tier]
+          content += `${tierName}：${price.toLocaleString()}万元\n`
+        })
+        content += `\n当前家庭现金：${this.globalEconomy.toLocaleString()}元`
+        
+        this.showEventResult(person, '房源查看', content, true)
+        break
+      }
+      
+      case 'buy_house_contract': {
+        // 购房合同签订：实际执行购买
+        const housing = this.familyAssets.housing
+        const targetTier = choice.meta.schoolTier || 'avg'
+        const regionType = this.worldState.regionType
+        const housePrice = calculateHousePrice(regionType, targetTier, 1.0)
+        const downPayment = housePrice * 0.35 // 35%首付
+        
+        if (this.globalEconomy >= downPayment) {
+          this.globalEconomy -= downPayment
+          housing.mode = 'own'
+          housing.regionType = regionType
+          housing.cityName = this.worldState.cityName
+          housing.schoolTier = targetTier
+          housing.buyYear = this.currentYear
+          housing.currentPrice = housePrice
+          housing.priceIndex = 1.0
+          housing.annualMortgage = annuityPayment(housePrice * 0.65, 0.046, 30) // 30年房贷
+          
+          person.psyche = Math.min(100, (person.psyche || 50) + 5)
+          this.showEventResult(person, '购房成功', 
+            `🎉 成功购买${housePrice.toLocaleString()}万元住房！\n🏦 年供：${housing.annualMortgage.toLocaleString()}元\n🎓 学区：${targetTier}`, true)
+        } else {
+          this.showEventResult(person, '购房失败', '资金不足，无法完成购房', false)
+        }
+        break
+      }
+      
+      case 'rent_sign': {
+        // 租房签约
+        const housing = this.familyAssets.housing
+        const targetTier = choice.meta.schoolTier || 'none'
+        const regionType = this.worldState.regionType
+        
+        housing.mode = 'rent'
+        housing.regionType = regionType
+        housing.cityName = this.worldState.cityName
+        housing.schoolTier = targetTier
+        housing.buyYear = this.currentYear
+        const baseRent = CFG.REGIONS[regionType].rentBase * (targetTier === 'top' ? 1.5 : targetTier === 'good' ? 1.2 : 1.0)
+        housing.currentPrice = baseRent * 12 // 年租金
+        
+        person.psyche = Math.max(0, (person.psyche || 50) - 1)
+        this.showEventResult(person, '租房成功', 
+          `🏠 成功租赁住房\n💰 年租金：${housing.currentPrice.toLocaleString()}元`, true)
+        break
+      }
+      
+      case 'house_upgrade_init': {
+        // 住房升级初始化
+        person.flags.isSwitchingHouse = true
+        const currentPrice = this.familyAssets.housing.currentPrice || 0
+        this.showEventResult(person, '换房准备', 
+          `🔄 开始换房流程\n💡 当前房产价值：${currentPrice.toLocaleString()}元\n⚠️ 需要协调买卖时间`, true)
+        break
+      }
+      
+      case 'house_chain_break': {
+        // 换房断链处理
+        if (person.flags.isSwitchingHouse) {
+          delete person.flags.isSwitchingHouse
+          const bridgeCost = rand(8000, 25000)
+          this.globalEconomy -= bridgeCost
+          person.strain = Math.min(100, (person.strain || 50) + 8)
+          this.showEventResult(person, '断链处理', 
+            `💸 支付过桥费用：${bridgeCost.toLocaleString()}元\n📈 压力增加，但换房继续`, false)
+        }
+        break
+      }
+      
+      case 'marry_bind_partner': {
+        // 结婚绑定伴侣：从候选人创建完整人物卡
+        const partnerData = choice.meta.partnerCandidate
+        if (partnerData && !person.partner) {
+          this.createPartnerFromCandidate(person, partnerData)
+        }
+        break
+      }
+      
+      case 'birth_try': {
+        // 生育尝试
+        if (person.partner) {
+          const motherHealth = person.gender === '女' ? person.health : person.partner.health
+          const fatherHealth = person.gender === '男' ? person.health : person.partner.health
+          const avgHealth = (motherHealth + fatherHealth) / 2
+          const successRate = Math.max(0.3, Math.min(0.9, avgHealth / 100))
+          
+          if (Math.random() < successRate) {
+            this.createBaby(person, 1)
+            if (person.gender === '女') person.health -= 3
+            if (person.partner.gender === '女') person.partner.health -= 3
+            this.showEventResult(person, '生育成功', 
+              `👶 恭喜喜得贵子！\n💕 家庭人口增加\n🩺 产妇健康-3`, true)
+          } else {
+            person.psyche = Math.max(0, (person.psyche || 50) - 3)
+            if (person.partner) person.partner.psyche = Math.max(0, (person.partner.psyche || 50) - 3)
+            this.showEventResult(person, '生育暂缓', 
+              `😔 这次尝试未成功\n💙 继续调养身体\n😟 心理健康-3`, false)
+          }
+        }
+        break
+      }
+      
+      case 'apply_offer': {
+        // 求职申请：处理动态生成的工作申请
+        const { jobName, successRate, expectedSalary } = choice.meta
+        if (!jobName) return
+        
+        // 使用employment.js中的成功率计算（允许覆盖）
+        const regionType = this.worldState?.regionType || 'city'
+        const finalSuccessRate = successRate || calcJobSuccess(person, jobName, regionType, CAREERS)
+        const finalSalary = expectedSalary || calcStartingSalary(person, jobName, regionType, CAREERS)
+        
+        if (Math.random() < finalSuccessRate) {
+          // 求职成功
+          person.occupation = jobName
+          person.jobSeeking = false
+          person.income = finalSalary
+          person.workYears = 0
+          person.satisfaction = 50
+          person.psyche = Math.min(100, (person.psyche || 50) + 5)
+          
+          this.showEventResult(person, '求职成功', 
+            `🎉 成功入职${jobName}！\n💰 年薪：${finalSalary.toLocaleString()}元\n📈 心理健康+5\n🚀 职业生涯开始！`, true)
+        } else {
+          // 求职失败
+          person.flags.jobFailCount = (person.flags.jobFailCount || 0) + 1
+          person.psyche = Math.max(0, (person.psyche || 50) - 3)
+          person.strain = Math.min(100, (person.strain || 50) + 2)
+          
+          this.showEventResult(person, '求职失败', 
+            `😔 ${jobName}求职失败\n💼 继续寻找工作机会\n😟 心理健康-3，压力+2\n💪 不要放弃，坚持就是胜利！`, false)
+        }
+        break
+      }
+      
+      default:
+        console.log(`未知的事件动作：${actionType}`)
+        break
+    }
+  },
+
+  // 从候选人数据创建完整伴侣人物卡
+  createPartnerFromCandidate(person, candidateData) {
+    const partner = {
+      id: this.generateId(),
+      name: candidateData.name || this.generateRandomName(),
+      age: candidateData.age || (person.age + Math.floor((Math.random() - 0.5) * 6)),
+      gender: person.gender === '男' ? '女' : '男',
+      health: candidateData.health || this.generateNormalDistribution(50, 15),
+      charm: candidateData.charm || this.generateNormalDistribution(50, 15),
+      intelligence: candidateData.intelligence || this.generateNormalDistribution(50, 15),
+      // 新增属性
+      stability: this.generateNormalDistribution(50, 15),
+      motivation: this.generateNormalDistribution(50, 15),
+      creativity: this.generateNormalDistribution(50, 15),
+      stress: 0,
+      cumStudyHours: 0,
+      satisfaction: 50,
+      // 新经济系统属性
+      psyche: 50, 
+      strain: 30, 
+      competitiveness: 0,
+      ambition: this.generateNormalDistribution(50, 15),
+      // 求职偏好 0-1 累积
+      prefGov: 0,
+      prefCorp: 0, 
+      prefStartup: 0,
+      // 原有属性
+      economicContribution: 0,
+      income: candidateData.income || (Math.floor(Math.random() * 80000) + 40000),
+      isAlive: true,
+      partner: person,
+      children: [],
+      occupation: candidateData.occupation || ['工人', '白领', '国企员工'][Math.floor(Math.random() * 3)],
+      education: candidateData.education || '大学',
+      schoolLevel: candidateData.schoolLevel || ['双非', '二本'][Math.floor(Math.random() * 2)],
+      major: null,
+      workYears: Math.floor(Math.random() * 5) + 1,
+      jobSeeking: false,
+      lastPromotionYear: 0,
+      isRetired: false,
+      flags: {
+        internTier: Math.floor(Math.random() * 3), // 随机0-2实习经历
+        researchTier: Math.floor(Math.random() * 2), // 随机0-1科研经历
+        leaderTier: Math.floor(Math.random() * 2), // 随机0-1领导经历
+        jobFailCount: 0
+      }
+    }
+    
+    person.partner = partner
+    this.persons.push(partner)
+    
+    // 设置结婚年份标记
+    if (!person.flags) person.flags = {}
+    if (!partner.flags) partner.flags = {}
+    person.flags.marriageYear = this.currentYear
+    partner.flags.marriageYear = this.currentYear
+    
+    this.showEventResult(person, '喜结良缘', 
+      `💕 ${person.name}与${partner.name}结婚了！\n💰 伴侣收入：${partner.income.toLocaleString()}元/年\n🎉 家庭人口增加`, true)
+  },
+
 })
 
 // 计算属性

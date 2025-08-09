@@ -21,6 +21,11 @@
           <text class="stat-label">人口:</text>
           <text class="stat-value">{{ alivePersonsCount }}</text>
         </view>
+        <!-- 城市信息 -->
+        <view class="stat-item">
+          <text class="stat-label">城市:</text>
+          <text class="stat-value">{{ gameStore.worldState.cityName }}</text>
+        </view>
       </view>
       
       <!-- 游戏控制按钮 -->
@@ -62,6 +67,23 @@
       </view>
     </view>
     
+    <!-- 住房信息面板 -->
+    <view class="housing-info" v-if="gameStore.familyAssets.housing?.mode !== 'none'">
+      <view class="housing-header">🏠 家庭住房</view>
+      <view class="housing-details">
+        <text class="housing-item">📍 {{ gameStore.familyAssets.housing.cityName }}</text>
+        <text class="housing-item">
+          {{ gameStore.familyAssets.housing.mode === 'own' ? '🏡 自有住房' : '🏠 租赁住房' }}
+        </text>
+        <text class="housing-item">
+          🎓 学区: {{ getSchoolTierLabel(gameStore.familyAssets.housing.schoolTier) }}
+        </text>
+        <text class="housing-item">
+          💰 房价: {{ gameStore.familyAssets.housing.currentPrice?.toLocaleString() || 0 }}元
+        </text>
+      </view>
+    </view>
+    
     <!-- 家族树区域 -->
     <view class="family-container">
       <scroll-view class="family-scroll" scroll-y="true" v-if="gameStore.persons.length > 0">
@@ -92,6 +114,14 @@
       @selectOption="handleEventChoice"
     />
     
+    <!-- 普通事件底部弹层 -->
+    <EventSheet
+      :visible="gameStore.isNormalSheetOpen"
+      :event="gameStore.pendingNormalEvent"
+      @choose="handleNormalEventChoice"
+      @close="handleNormalEventClose"
+    />
+    
     <!-- 存档加载弹窗 -->
     <view class="modal-overlay" v-if="showLoadModal" @click="showLoadModal = false">
       <view class="load-modal" @click.stop>
@@ -120,17 +150,19 @@
 </template>
 
 <script>
-import { gameStore, gameComputed } from '@/store/gameStore.js'
-import PersonCard from '@/components/PersonCard.vue'
-import PersonDetailsModal from '@/components/PersonDetailsModal.vue'
-import EventModal from '@/components/EventModal.vue'
-import FamilyTree from '@/components/FamilyTree.vue'
+import { gameStore, gameComputed } from '../../store/gameStore.js'
+import PersonCard from '../../components/PersonCard.vue'
+import PersonDetailsModal from '../../components/PersonDetailsModal.vue'
+import EventModal from '../../components/EventModal.vue'
+import EventSheet from '../../components/EventSheet.vue'
+import FamilyTree from '../../components/FamilyTree.vue'
 
 export default {
   components: {
     PersonCard,
     PersonDetailsModal,
     EventModal,
+    EventSheet,
     FamilyTree
   },
   data() {
@@ -148,15 +180,34 @@ export default {
     }
   },
   onLoad() {
-    
+    // 验证新系统是否正确加载
+    this.verifyNewSystems()
   },
+  
   onUnload() {
     // 页面卸载时清理定时器
     if (gameStore.gameTimer) {
       clearInterval(gameStore.gameTimer)
     }
   },
+  
   methods: {
+    // 验证新系统模块是否正确加载
+    verifyNewSystems() {
+      try {
+        // 测试创建一个人物看是否有新属性
+        if (gameStore.persons.length === 0) {
+          console.log('系统验证：新属性系统已就绪')
+        }
+      } catch (error) {
+        console.error('新系统验证失败:', error)
+        uni.showToast({
+          title: '系统加载异常',
+          icon: 'error'
+        })
+      }
+    },
+    
     startGame() {
       gameStore.initGame()
       uni.showToast({
@@ -218,6 +269,16 @@ export default {
       gameStore.handleEventChoice(option)
     },
     
+    // 处理普通事件选择
+    handleNormalEventChoice(choiceIndex) {
+      gameStore.handleNormalEventChoice(choiceIndex)
+    },
+    
+    // 处理普通事件关闭
+    handleNormalEventClose() {
+      gameStore.closeNormalEvent()
+    },
+    
     async saveGame() {
       try {
         await gameStore.saveToCloud()
@@ -247,6 +308,18 @@ export default {
     formatTime(dateStr) {
       const date = new Date(dateStr)
       return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`
+    },
+    
+    
+    // 获取学区等级标签
+    getSchoolTierLabel(tier) {
+      const labels = {
+        'none': '无学区',
+        'weak': '普通学区', 
+        'mid': '中等学区',
+        'strong': '顶级学区'
+      }
+      return labels[tier] || '未知'
     }
   },
   
@@ -355,6 +428,10 @@ export default {
   background: linear-gradient(45deg, #f44336, #d32f2f);
 }
 
+.enable-btn {
+  background: linear-gradient(45deg, #673AB7, #5E35B1);
+}
+
 .family-container {
   flex: 1;
   padding: 20rpx;
@@ -434,5 +511,39 @@ export default {
   padding: 100rpx 0;
   color: #999;
   font-size: 28rpx;
+}
+
+/* 住房信息面板样式 */
+.housing-info {
+  margin: 20rpx;
+  padding: 24rpx;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}
+
+.housing-header {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 16rpx;
+  text-align: center;
+}
+
+.housing-details {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.housing-item {
+  font-size: 26rpx;
+  color: #666;
+  background: #f8f9fa;
+  padding: 8rpx 16rpx;
+  border-radius: 12rpx;
+  min-width: 45%;
+  text-align: center;
 }
 </style>

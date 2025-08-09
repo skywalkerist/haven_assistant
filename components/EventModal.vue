@@ -6,32 +6,32 @@
       </view>
       
       <view class="event-content">
-        <view class="person-info">
-          <text class="person-name">{{ event.person.name }}</text>
-          <text class="person-age">{{ event.person.age }}岁</text>
+        <view class="person-info" v-if="event.person">
+          <text class="person-name">{{ event.person.name || '未知' }}</text>
+          <text class="person-age">{{ event.person.age || 0 }}岁</text>
         </view>
         
-        <view class="event-title">{{ event.type }}</view>
+        <view class="event-title">{{ event.type || '事件' }}</view>
         
         <view class="event-description">
           {{ getEventDescription() }}
         </view>
         
-        <view class="options-list">
+        <view class="options-list" v-if="event.options && event.options.length > 0">
           <view 
             class="option-item" 
             v-for="(option, index) in event.options" 
             :key="index"
             @click="selectOption(option)"
-            :class="{ 'disabled': globalEconomy - option.cost < -300000 }"
+            :class="{ 'disabled': globalEconomy - (option.cost || 0) < -300000 }"
           >
             <view class="option-content">
               <text class="option-text">{{ option.text }}</text>
               <view class="option-effects">
-                <text class="cost" v-if="option.cost > 0">
-                  费用: {{ option.cost.toLocaleString() }}元
+                <text class="cost" v-if="(option.cost || 0) > 0">
+                  费用: {{ (option.cost || 0).toLocaleString() }}元
                 </text>
-                <view class="effects" v-if="Object.keys(option.effects).length > 0">
+                <view class="effects" v-if="option.effects && Object.keys(option.effects).length > 0">
                   <text 
                     class="effect-item" 
                     v-for="(value, key) in option.effects" 
@@ -78,7 +78,8 @@ export default {
   emits: ['selectOption'],
   methods: {
     selectOption(option) {
-      if (this.globalEconomy - option.cost < -300000) {
+      if (!option) return
+      if (this.globalEconomy - (option.cost || 0) < -300000) {
         uni.showToast({
           title: '此选择将导致破产',
           icon: 'none',
@@ -90,6 +91,8 @@ export default {
     },
     
     getEventDescription() {
+      if (!this.event || !this.event.type) return '面临人生选择，请慎重考虑。'
+      
       const descriptions = {
         // 重要事件
         '高考': '人生的重要转折点，高考成绩将决定你能进入什么档次的大学。',

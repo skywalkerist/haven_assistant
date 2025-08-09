@@ -1,20 +1,22 @@
 <template>
   <view class="family-tree">
     <!-- 第一代 -->
-    <view class="generation" v-for="(generation, genIndex) in generations" :key="genIndex">
+    <view class="generation" v-for="(generation, genIndex) in generations" :key="`gen-${genIndex}`">
       <view class="generation-title">第{{ genIndex + 1 }}代</view>
       
       <!-- 同一代的夫妻组 -->
       <view class="couples-row">
-        <view class="couple-group" v-for="(couple, coupleIndex) in generation" :key="coupleIndex">
+        <view class="couple-group" v-for="(couple, coupleIndex) in generation" :key="`gen-${genIndex}-couple-${coupleIndex}-${(couple.husband || couple.single).id}`">
           <!-- 夫妻卡片 -->
           <view class="couple-cards">
             <PersonCard 
+              :key="`person-${(couple.husband || couple.single).id}`"
               :person="couple.husband || couple.single" 
               @showDetails="$emit('showDetails', $event)"
             />
             <PersonCard 
               v-if="couple.wife"
+              :key="`person-${couple.wife.id}`"
               :person="couple.wife" 
               @showDetails="$emit('showDetails', $event)"
             />
@@ -107,14 +109,20 @@ export default {
       for (const person of people) {
         if (processed.has(person.id)) continue
         
-        if (person.partner && this.persons.find(p => p.id === person.partner.id)) {
-          // 有配偶且配偶也在persons数组中
+        // 更严格的伴侣验证：确保伴侣存在且在同一代人中
+        const partnerInSameGen = person.partner && 
+          people.find(p => p.id === person.partner.id) && 
+          this.persons.find(p => p.id === person.partner.id)
+        
+        if (partnerInSameGen) {
+          // 有配偶且配偶也在同一代人中
+          const partner = person.partner
           couples.push({
-            husband: person.gender === '男' ? person : person.partner,
-            wife: person.gender === '女' ? person : person.partner
+            husband: person.gender === '男' ? person : partner,
+            wife: person.gender === '女' ? person : partner
           })
           processed.add(person.id)
-          processed.add(person.partner.id)
+          processed.add(partner.id)
         } else {
           // 单身
           couples.push({
